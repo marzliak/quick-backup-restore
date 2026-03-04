@@ -30,7 +30,7 @@ install_pkg() {
     local pkg="$1"
     if ! command -v "$pkg" &>/dev/null; then
         echo "    Installing $pkg..."
-        apt-get install -y "$pkg" -qq
+        apt-get install -qq -y "$pkg"
     else
         echo "    $pkg already installed — OK"
     fi
@@ -47,10 +47,19 @@ if ! command -v yq &>/dev/null; then
     echo "    Installing yq..."
     YQ_VERSION="v4.44.1"
     YQ_BIN="/usr/local/bin/yq"
-    curl -sL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
-        -o "$YQ_BIN"
+    YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+    YQ_CHECKSUM_URL="${YQ_URL}.sha256"
+    curl -sL "$YQ_URL" -o "$YQ_BIN"
+    EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUM_URL" | awk '{print $1}')
+    ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
+    if [[ -n "$EXPECTED_SHA" && "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+        rm -f "$YQ_BIN"
+        echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
+        echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
+        exit 1
+    fi
     chmod +x "$YQ_BIN"
-    echo "    yq $YQ_VERSION installed — OK"
+    echo "    yq $YQ_VERSION installed (checksum verified) — OK"
 else
     echo "    yq already installed — OK"
 fi
@@ -71,8 +80,14 @@ if [[ -f "$PASS_FILE" ]]; then
 else
     echo "==> Generating restic encryption password..."
     mkdir -p "$(dirname "$PASS_FILE")"
-    openssl rand -base64 48 > "$PASS_FILE"
-    chmod 600 "$PASS_FILE"
+    # Safety: refuse to overwrite if file appeared between check and write
+    if [[ -f "$PASS_FILE" ]]; then
+        echo "    WARN: Password file appeared unexpectedly at $PASS_FILE — not overwriting"
+    else
+        ( set -C; openssl rand -base64 48 > "$PASS_FILE" ) 2>/dev/null \
+            || { echo "ERROR: Could not write password to $PASS_FILE"; exit 1; }
+        chmod 600 "$PASS_FILE"
+    fi
     echo ""
     echo "    ┌─────────────────────────────────────────────────────┐"
     echo "    │  Password saved to: $PASS_FILE"

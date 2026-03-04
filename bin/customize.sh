@@ -77,12 +77,13 @@ CURRENT_EXCLUDES=$(printf '%s\n' "${EXCLUDES[@]}" | sed 's/--exclude=//')
 # --- Helper: fill prompt template --------------------------------------------
 fill_prompt() {
     local template_file="$1"
-    sed \
-        -e "s|{{WORKSPACE_PATH}}|$WORKSPACE_PATH|g" \
-        -e "s|{{CURRENT_PATHS}}|$CURRENT_PATHS|g" \
-        -e "s|{{CURRENT_EXCLUDES}}|$CURRENT_EXCLUDES|g" \
-        -e "s|{{WORKSPACE_TREE}}|$WORKSPACE_TREE|g" \
-        "$template_file"
+    local template
+    template=$(<"$template_file")
+    template="${template//\{\{WORKSPACE_PATH\}\}/$WORKSPACE_PATH}"
+    template="${template//\{\{CURRENT_PATHS\}\}/$CURRENT_PATHS}"
+    template="${template//\{\{CURRENT_EXCLUDES\}\}/$CURRENT_EXCLUDES}"
+    template="${template//\{\{WORKSPACE_TREE\}\}/$WORKSPACE_TREE}"
+    printf '%s' "$template"
 }
 
 # --- Run whitelist prompt -----------------------------------------------------
@@ -171,11 +172,11 @@ cp "$CONFIG_FILE" "${CONFIG_FILE}.bak"
 
 echo "==> Updating config.yaml..."
 
-# Sanitize function — reject strings that could break yq expressions
+# Sanitize function — only allow safe characters (whitelist approach)
 _sanitize_entry() {
     local entry="$1"
-    if [[ "$entry" =~ [\"\]\|\{\}] ]]; then
-        echo "    ⚠ Skipped unsafe entry: $entry" >&2
+    if [[ ! "$entry" =~ ^[a-zA-Z0-9/_.*@:~-]+$ ]]; then
+        echo "    ⚠ Skipped unsafe entry (invalid chars): $entry" >&2
         return 1
     fi
     return 0

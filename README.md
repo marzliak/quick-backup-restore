@@ -230,6 +230,8 @@ Scripts source `lib.sh` for all shared logic. `config.yaml` is the single source
 - Credentials and `secrets.env` files are **included in the encrypted backup** but excluded from git via `.gitignore`
 - The `customize.sh` command uses `openclaw agent ask --no-memory` — your workspace content is sent to your model provider but **not stored in agent memory**
 - The backup repository never leaves the VM unless you configure a remote backend
+- **Important:** if you add Telegram credentials to `config.yaml` before running `setup.sh`, run `chmod 600 config.yaml` immediately — `setup.sh` sets this automatically, but the file is world-readable until then
+- After a `git pull`, re-run `sudo bin/setup.sh` to apply updates to the installed cron script
 
 ---
 

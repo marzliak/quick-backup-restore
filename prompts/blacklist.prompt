@@ -9,7 +9,6 @@ identify patterns or specific paths that should be EXCLUDED from backup because 
 - Temporary or regeneratable (caches, build output, node_modules, __pycache__, etc.)
 - Too large to be worth backing up hourly (e.g. large datasets, model weights, media)
 - Duplicates of data backed up elsewhere
-- Sensitive files that should never leave this machine even encrypted
 
 Do NOT suggest excluding:
 - Core workspace files (MEMORY.md, SOUL.md, etc.)

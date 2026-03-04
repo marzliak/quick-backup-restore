@@ -35,3 +35,7 @@ Initial release.
 - `CHANGELOG.md` in Keep a Changelog format
 - `.gitignore` pre-configured: excludes `.pass`, `.env`, `secrets.*`, `.bak`, backup directories
 - 72-snapshot retention (3 days at 1/hour), configurable via `retention.keep_last`
+
+---
+
+[1.0.0]: https://github.com/marzliak/time-clawshine/releases/tag/v1.0.0

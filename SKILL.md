@@ -22,7 +22,7 @@ Time Clawshine protects OpenClaw's runtime context (memory, sessions, credential
 
 1. Check if already set up:
    ```bash
-   restic -r /var/backups/time-clawshine --password-file /etc/time-clawshine.pass snapshots 2>/dev/null && echo "Already initialized"
+   source {baseDir}/lib.sh && tc_load_config && restic_cmd snapshots 2>/dev/null && echo "Already initialized"
    ```
 2. If not initialized, ask the user to fill in `{baseDir}/config.yaml` with their Telegram `bot_token` and `chat_id`, then run:
    ```bash
@@ -57,13 +57,14 @@ tail -20 /var/log/time-clawshine.log
 
 List all snapshots (most recent first):
 ```bash
-restic -r /var/backups/time-clawshine --password-file /etc/time-clawshine.pass snapshots
+source {baseDir}/lib.sh && tc_load_config && restic_cmd snapshots
 ```
 
 Show what changed between the two most recent snapshots:
 ```bash
-SNAPS=$(restic -r /var/backups/time-clawshine --password-file /etc/time-clawshine.pass snapshots --json | jq -r '.[-2:][].id')
-restic -r /var/backups/time-clawshine --password-file /etc/time-clawshine.pass diff $SNAPS
+source {baseDir}/lib.sh && tc_load_config
+SNAPS=$(restic_cmd snapshots --json | jq -r '.[-2:][].id')
+restic_cmd diff $SNAPS
 ```
 
 ---
@@ -94,7 +95,7 @@ Always confirm with the user before executing a full restore to `/`.
 ## When the user asks to check repo integrity
 
 ```bash
-restic -r /var/backups/time-clawshine --password-file /etc/time-clawshine.pass check
+source {baseDir}/lib.sh && tc_load_config && restic_cmd check
 ```
 
 ---

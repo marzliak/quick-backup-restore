@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # lib.sh — shared functions for Time Clawshine
-# Source this file: source "$(dirname "$0")/../lib.sh"
+# Sourced by all bin/ scripts via: source "$TC_ROOT/lib.sh"
 # =============================================================================
 
 # --- Resolve config path -----------------------------------------------------
@@ -34,6 +34,19 @@ tc_load_config() {
     TG_ENABLED=$(_cfg '.notifications.telegram.enabled')
     TG_TOKEN=$(_cfg '.notifications.telegram.bot_token')
     TG_CHAT_ID=$(_cfg '.notifications.telegram.chat_id')
+
+    # Validate critical config values
+    _require_cfg() {
+        local name="$1" val="$2"
+        if [[ -z "$val" || "$val" == "null" ]]; then
+            echo "[time-clawshine] ERROR: config.yaml missing required field: $name"
+            exit 1
+        fi
+    }
+    _require_cfg 'repository.path'          "$REPO"
+    _require_cfg 'repository.password_file' "$PASS_FILE"
+    _require_cfg 'retention.keep_last'      "$KEEP_LAST"
+    _require_cfg 'logging.file'             "$LOG_FILE"
 
     # Build backup paths array (standard + extra)
     mapfile -t _BASE_PATHS  < <(_cfg_list '.backup.paths[]')
@@ -87,18 +100,22 @@ tg_send() {
 tg_failure() {
     local error_msg="$1"
     local hostname; hostname=$(hostname)
+    # Truncate error output to avoid leaking sensitive paths/data via Telegram
+    local safe_msg
+    safe_msg=$(head -c 800 <<< "$error_msg")
+    [[ ${#error_msg} -gt 800 ]] && safe_msg+=$'\n[...truncated]'
     tg_send "🔴 *Time Clawshine — Backup FALHOU*
 🖥 \`$hostname\`
 🕐 $(timestamp)
 
 \`\`\`
-$error_msg
+$safe_msg
 \`\`\`"
 }
 
 # --- Restic wrapper ----------------------------------------------------------
 restic_cmd() {
-    restic -r "$REPO" --password-file "$PASS_FILE" "$@"
+    RESTIC_PASSWORD_FILE="$PASS_FILE" restic -r "$REPO" "$@"
 }
 
 # --- Validation --------------------------------------------------------------

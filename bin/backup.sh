@@ -4,7 +4,7 @@
 # Called by cron every hour — silent on success, Telegram on failure
 # =============================================================================
 
-set -uo pipefail
+set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$TC_ROOT/lib.sh"
@@ -17,6 +17,7 @@ touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit
 
 # --- Concurrency lock — skip if another backup is already running -----------
 exec 200>/var/lock/time-clawshine.lock
+chmod 600 /var/lock/time-clawshine.lock 2>/dev/null || true
 flock -n 200 || { log_warn "Another backup is already running — skipping"; exit 0; }
 
 log_info "--- Time Clawshine started ---"

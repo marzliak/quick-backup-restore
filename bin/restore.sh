@@ -4,7 +4,7 @@
 # Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]
 # =============================================================================
 
-set -uo pipefail
+set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$TC_ROOT/lib.sh"
@@ -19,8 +19,14 @@ TARGET="${TC_TARGET:-/}"
 # --- Parse flags ------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --file)   FILE_FILTER="$2"; shift 2 ;;
-        --target) TARGET="$2";      shift 2 ;;
+        --file)
+            [[ $# -ge 2 ]] || { echo "ERROR: --file requires an argument"; exit 1; }
+            FILE_FILTER="$2"; shift 2
+            ;;
+        --target)
+            [[ $# -ge 2 ]] || { echo "ERROR: --target requires an argument"; exit 1; }
+            TARGET="$2"; shift 2
+            ;;
         --help|-h)
             echo "Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]"
             echo ""
@@ -65,7 +71,12 @@ RESTORE_ARGS=(restore "$SNAPSHOT_ID" --target "$TARGET")
 echo ""
 echo "==> Dry run preview:"
 echo ""
-restic_cmd "${RESTORE_ARGS[@]}" --dry-run 2>&1 | head -40
+DRY_RUN_OUTPUT=$(restic_cmd "${RESTORE_ARGS[@]}" --dry-run 2>&1)
+DRY_RUN_LINES=$(wc -l <<< "$DRY_RUN_OUTPUT")
+head -40 <<< "$DRY_RUN_OUTPUT"
+if [[ $DRY_RUN_LINES -gt 40 ]]; then
+    echo "  ... ($((DRY_RUN_LINES - 40)) more lines not shown)"
+fi
 echo ""
 
 read -rp "Proceed with restore? [y/N]: " CONFIRM
