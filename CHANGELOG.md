@@ -19,8 +19,8 @@ Initial release.
 
 **AI-assisted customization**
 - `bin/customize.sh` — analyzes actual workspace, runs AI prompts via the OpenClaw agent, shows whitelist/blacklist suggestions, applies to `config.yaml` only after explicit user confirmation; saves `config.yaml.bak` before any change
-- `prompts/whitelist.prompt` — template asking the agent to identify extra paths worth backing up
-- `prompts/blacklist.prompt` — template asking the agent to identify patterns that should be excluded
+- `prompts/whitelist.txt` — template asking the agent to identify extra paths worth backing up
+- `prompts/blacklist.txt` — template asking the agent to identify patterns that should be excluded
 
 **Configuration**
 - `config.yaml` as single source of truth — zero hardcoded values in any script

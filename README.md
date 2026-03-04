@@ -1,6 +1,6 @@
 # ⏱🦞 Time Clawshine
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.txt)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)]()
 [![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-skill-orange.svg)](SKILL.md)
@@ -211,8 +211,8 @@ time-clawshine/
 │   ├── restore.sh       ← interactive restore with dry-run gate
 │   └── customize.sh     ← AI-assisted whitelist/blacklist customization
 ├── prompts/
-│   ├── whitelist.prompt ← prompt template for extra path suggestions
-│   └── blacklist.prompt ← prompt template for exclusion suggestions
+│   ├── whitelist.txt   ← prompt template for extra path suggestions
+│   └── blacklist.txt   ← prompt template for exclusion suggestions
 ├── SKILL.md             ← OpenClaw agent instructions (ClaWHub-compatible)
 ├── CHANGELOG.md
 └── README.md

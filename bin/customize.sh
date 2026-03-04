@@ -89,7 +89,7 @@ fill_prompt() {
 # --- Run whitelist prompt -----------------------------------------------------
 echo ""
 echo "==> Asking your agent for whitelist suggestions..."
-WHITELIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/whitelist.prompt")
+WHITELIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/whitelist.txt")
 WHITELIST_RAW=$(echo "$WHITELIST_PROMPT" | openclaw agent ask --no-memory - 2>/dev/null || echo "ERROR")
 
 if [[ "$WHITELIST_RAW" == "ERROR" ]]; then
@@ -106,7 +106,7 @@ fi
 
 # --- Run blacklist prompt -----------------------------------------------------
 echo "==> Asking your agent for blacklist suggestions..."
-BLACKLIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/blacklist.prompt")
+BLACKLIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/blacklist.txt")
 BLACKLIST_RAW=$(echo "$BLACKLIST_PROMPT" | openclaw agent ask --no-memory - 2>/dev/null || echo "ERROR")
 
 if [[ "$BLACKLIST_RAW" == "ERROR" ]]; then
