@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.3.0] — 2026-04-09
+
+### Changed
+- SKILL.md: complete rewrite of hero copy — marketing-grade intro with problem/solution table, feature highlights, and technical reference below
+- Title unified to "Time Clawshine" across all docs
+
+---
+
 ## [1.2.4] — 2026-04-09
 
 ### Changed

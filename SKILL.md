@@ -4,23 +4,52 @@ description: "Time Clawshine — a simple but powerful time machine for OpenClaw
 metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
 ---
 
-# ⏱🦞 Quick Backup and Restore (time machine)
+# ⏱🦞 Time Clawshine
 
-Your OpenClaw agent builds memory, preferences, and context over time — and agents make mistakes. They overwrite things. They corrupt their own context. When that happens, you want to go back to *exactly* 2 hours ago, not yesterday's backup, not a full system restore.
+**Your agent just nuked its own memory. Now what?**
 
-This skill gives your agent hourly snapshots of its own brain. Restic-powered, encrypted, silent on success — and it pings you on Telegram only when something breaks.
+You spent weeks training your OpenClaw agent — building memory, refining context, tuning personality. Then one bad session wipes it. Gone. And your last "real" backup? Yesterday. Maybe last week.
 
-## Overview
+**Time Clawshine gives you a time machine.** Every hour, it silently takes an encrypted, incremental snapshot of your agent's brain — memory, sessions, config, everything. Only changed bytes are stored, so it runs in seconds and barely uses disk. When things break (and they will), you roll back to *exactly* the moment before it happened. Not yesterday. Not "the last backup." The exact hour.
 
-Quick Backup and Restore protects OpenClaw's runtime context (memory, sessions, config) with hourly snapshots. It runs automatically via cron. You can also trigger it manually or restore any point in the last 72 hours.
+**One command to install. Zero maintenance. Just works.**
 
-**Repository:** `{baseDir}/../../../var/backups/quick-backup-restore` (or as configured in `{baseDir}/config.yaml`)
-**Log:** `/var/log/quick-backup-restore.log`
-**Password file:** `/etc/quick-backup-restore.pass`
+```bash
+sudo bash {baseDir}/bin/setup.sh
+```
+
+### Why this exists
+
+| Problem | Without Time Clawshine | With Time Clawshine |
+|---------|----------------------|---------------------|
+| Agent overwrites MEMORY.md | Hope you saved a copy | `restore.sh "2h ago"` |
+| Bad session corrupts context | Rebuild from scratch | Roll back one snapshot |
+| "What changed?" | No idea | `restic diff` between any two snapshots |
+| Disk fills up | Backup keeps growing | Dedup — only deltas stored |
+| Something fails | You find out next week | Telegram ping in 60 seconds |
+
+### What's under the hood
+
+- **Restic** — battle-tested backup engine, AES-256 encryption, incremental deduplication
+- **72 snapshots / 3 days** of history at hourly resolution (configurable)
+- **Disk guard** — aborts before filling your disk, alerts via Telegram
+- **Integrity checks** — automatic `restic check` every 24 backups
+- **Daily digest** — Telegram summary with snapshot count, repo size, disk free
+- **Update awareness** — checks ClawHub daily, never auto-updates
+- **Status dashboard** — `bin/status.sh` for a full health check at a glance
+- **100% offline** — no data leaves your machine (Telegram and update check are opt-in)
 
 ---
 
-## When the user asks to set up or install Quick Backup and Restore (time machine)
+## Technical reference
+
+**Repository:** configured in `{baseDir}/config.yaml` (default: `/var/backups/quick-backup-restore`)
+**Log:** `/var/log/quick-backup-restore.log` (rotated weekly via logrotate)
+**Password file:** `/etc/quick-backup-restore.pass` (chmod 600 — **back this up separately**)
+
+---
+
+## When the user asks to set up or install Time Clawshine
 
 1. Check if already set up:
    ```bash
