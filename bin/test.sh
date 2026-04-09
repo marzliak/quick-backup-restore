@@ -112,12 +112,12 @@ if RESTIC_PASSWORD_FILE="$TEST_PASS" restic init -r "$TEST_REPO" > /dev/null 2>&
         # Restore
         mkdir -p "$TEST_RESTORE"
         if RESTIC_PASSWORD_FILE="$TEST_PASS" restic restore latest -r "$TEST_REPO" --target "$TEST_RESTORE" > /dev/null 2>&1; then
-            # Verify files match
-            ORIG_HASH=$(find "$TEST_DATA" -type f -exec sha256sum {} \; | sort | sha256sum)
+            # Verify files match (use relative paths so hashes compare equal)
+            ORIG_HASH=$(cd "$TEST_DATA" && find . -type f -exec sha256sum {} \; | sort | sha256sum)
             # Restored files are under $TEST_RESTORE/$TEST_DATA
             RESTORED_DATA="$TEST_RESTORE$TEST_DATA"
             if [[ -d "$RESTORED_DATA" ]]; then
-                REST_HASH=$(find "$RESTORED_DATA" -type f -exec sha256sum {} \; | sort | sha256sum)
+                REST_HASH=$(cd "$RESTORED_DATA" && find . -type f -exec sha256sum {} \; | sort | sha256sum)
                 if [[ "$ORIG_HASH" == "$REST_HASH" ]]; then
                     _ok
                 else

@@ -27,6 +27,9 @@ echo "║  Quick Backup and Restore (time machine) — Setup  ║"
 echo "╚═════════════════════════════════════════════════╝"
 echo ""
 
+# --- Ensure all scripts are executable (git may strip +x on some platforms) --
+chmod +x "$TC_ROOT/bin/"*.sh "$TC_ROOT/lib.sh" 2>/dev/null || true
+
 # --- Install dependencies ---------------------------------------------------
 if [[ "$NO_SYSTEM" == "true" ]]; then
     echo "==> --no-system-install: skipping dependency installation"
@@ -75,12 +78,15 @@ else
         echo "    Installing yq..."
         YQ_VERSION="v4.44.1"
         YQ_BIN="/usr/local/bin/yq"
-        YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
-        YQ_CHECKSUM_URL="${YQ_URL}.sha256"
+        YQ_BINARY="yq_linux_amd64"
+        YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
+        YQ_CHECKSUMS_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums"
         curl -sL "$YQ_URL" -o "$YQ_BIN"
-        EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUM_URL" | awk '{print $1}')
+        EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUMS_URL" | grep "  ${YQ_BINARY}$" | awk '{print $1}')
         ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
-        if [[ -n "$EXPECTED_SHA" && "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+        if [[ -z "$EXPECTED_SHA" ]]; then
+            echo "    WARN: Could not fetch yq checksum — skipping verification"
+        elif [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
             rm -f "$YQ_BIN"
             echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
             echo "    Binary removed. Possible supply chain compromise — investigate before retrying."

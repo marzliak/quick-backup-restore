@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.1] — 2026-04-09
+
+### Fixed
+- `setup.sh`: yq checksum verification failed (404) — yq publishes a bulk `checksums` file, not individual `.sha256` per binary. Now downloads the correct file and greps for the matching hash
+- `setup.sh`: scripts missing execute permission on some platforms — added `chmod +x` for all `bin/*.sh` and `lib.sh` at startup
+- `test.sh`: roundtrip hash comparison used absolute paths causing false mismatch — switched to relative paths via `cd`
+
+---
+
 ## [2.0.0] — 2026-04-09
 
 ### Added
