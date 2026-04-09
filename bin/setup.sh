@@ -163,6 +163,23 @@ EOF
     chmod 644 "$CRON_FILE"
     echo "    Cron registered at: $CRON_FILE"
 
+    # --- Configure logrotate ---------------------------------------------------
+    echo ""
+    echo "==> Configuring logrotate for $LOG_FILE..."
+    LOGROTATE_FILE="/etc/logrotate.d/quick-backup-restore"
+    cat > "$LOGROTATE_FILE" <<EOF
+$LOG_FILE {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    create 640 root root
+}
+EOF
+    chmod 644 "$LOGROTATE_FILE"
+    echo "    Logrotate configured at: $LOGROTATE_FILE"
+
     # --- Restrict config.yaml permissions (may contain Telegram token) ----------
     chmod 600 "$CONFIG_FILE"
     echo "    config.yaml permissions set to 600"

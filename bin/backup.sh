@@ -22,6 +22,9 @@ flock -n 200 || { log_warn "Another backup is already running — skipping"; exi
 
 log_info "--- Quick Backup and Restore (time machine) started ---"
 
+# --- Disk space guard -------------------------------------------------------
+tc_check_disk "$MIN_DISK_MB" || exit 1
+
 # --- Validate backup paths --------------------------------------------------
 tc_validate_paths || exit 1
 
@@ -63,4 +66,66 @@ if [[ $FORGET_EXIT -ne 0 ]]; then
 fi
 
 log_info "Retention OK"
+
+# --- Integrity check (periodic restic check) --------------------------------
+if [[ "$CHECK_EVERY" -gt 0 ]]; then
+    COUNTER_FILE="/var/tmp/quick-backup-restore-check-counter"
+    COUNTER=0
+    [[ -f "$COUNTER_FILE" ]] && COUNTER=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
+    COUNTER=$(( COUNTER + 1 ))
+
+    if [[ $COUNTER -ge $CHECK_EVERY ]]; then
+        log_info "Running periodic integrity check (every $CHECK_EVERY backups)..."
+        CHECK_OUTPUT=$(restic_cmd check 2>&1)
+        CHECK_EXIT=$?
+        if [[ $CHECK_EXIT -ne 0 ]]; then
+            log_error "restic check failed (exit $CHECK_EXIT)"
+            log_error "$CHECK_OUTPUT"
+            tg_failure "restic check failed (exit $CHECK_EXIT):\n\n$CHECK_OUTPUT"
+        else
+            log_info "Integrity check OK"
+        fi
+        COUNTER=0
+    fi
+
+    echo "$COUNTER" > "$COUNTER_FILE"
+fi
+
+# --- Daily digest (first backup after midnight) -----------------------------
+if [[ "$TG_DAILY_DIGEST" == "true" && "$TG_ENABLED" == "true" ]]; then
+    DIGEST_MARKER="/var/tmp/quick-backup-restore-digest-date"
+    TODAY=$(date '+%Y-%m-%d')
+    LAST_DIGEST=""
+    [[ -f "$DIGEST_MARKER" ]] && LAST_DIGEST=$(cat "$DIGEST_MARKER" 2>/dev/null || true)
+
+    if [[ "$LAST_DIGEST" != "$TODAY" ]]; then
+        SNAP_COUNT=$(restic_cmd snapshots --json 2>/dev/null | jq 'length' 2>/dev/null || echo "?")
+        REPO_SIZE="?"
+        [[ -d "$REPO" ]] && REPO_SIZE=$(du -sh "$REPO" 2>/dev/null | awk '{print $1}' || echo "?")
+        REPO_DIR=$(dirname "$REPO")
+        DISK_FREE=$(df -h "$REPO_DIR" 2>/dev/null | awk 'NR==2{print $4}' || echo "?")
+        tg_digest "$SNAP_COUNT" "$REPO_SIZE" "$DISK_FREE"
+        echo "$TODAY" > "$DIGEST_MARKER"
+        log_info "Daily digest sent"
+    fi
+fi
+
+# --- Update version check (once per day, non-blocking) ----------------------
+if [[ "$UPDATE_CHECK" == "true" ]]; then
+    UPDATE_MARKER="/var/tmp/quick-backup-restore-update-date"
+    TODAY=${TODAY:-$(date '+%Y-%m-%d')}
+    LAST_UPDATE_CHECK=""
+    [[ -f "$UPDATE_MARKER" ]] && LAST_UPDATE_CHECK=$(cat "$UPDATE_MARKER" 2>/dev/null || true)
+
+    if [[ "$LAST_UPDATE_CHECK" != "$TODAY" ]]; then
+        CURRENT_VER=$(tc_current_version)
+        CLAWHUB_API="https://clawhub.com/api/v1/skills/quick-backup-restore"
+        REMOTE_VER=$(curl -s --max-time 5 "$CLAWHUB_API" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
+        if [[ -n "$REMOTE_VER" && "$REMOTE_VER" != "$CURRENT_VER" ]]; then
+            log_warn "New version available: v$REMOTE_VER (current: v$CURRENT_VER). Run: clawhub update quick-backup-restore"
+        fi
+        echo "$TODAY" > "$UPDATE_MARKER"
+    fi
+fi
+
 log_info "--- Quick Backup and Restore (time machine) finished ---"

@@ -1,6 +1,6 @@
 ---
 name: quick-backup-restore
-description: "Use this skill when the user asks to 'backup OpenClaw', 'restore a snapshot', 'roll back memory', 'check backup status', 'view backup history', 'undo agent changes', or 'set up time machine backup'."
+description: "Use this skill when the user asks to 'backup OpenClaw', 'restore a snapshot', 'roll back memory', 'check backup status', 'view backup history', 'undo agent changes', 'set up time machine backup', or 'check for updates'."
 metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
 ---
 
@@ -60,7 +60,12 @@ tail -5 /var/log/quick-backup-restore.log
 
 ## When the user asks to check backup status or history
 
-Show the last 10 log lines:
+Run the status dashboard:
+```bash
+sudo bash {baseDir}/bin/status.sh
+```
+
+Or show the last 20 log lines:
 ```bash
 tail -20 /var/log/quick-backup-restore.log
 ```
@@ -140,3 +145,19 @@ Shows suggestions and asks for confirmation before changing `config.yaml`.
 - **This is the time machine layer.** It protects against "the agent broke something in the last 3 days." It is NOT a disaster recovery backup — that should be handled by an off-VM backup (e.g. restic to a remote server).
 - **Password:** The restic repository is AES-256 encrypted. The password is at `/etc/quick-backup-restore.pass` (chmod 600). Losing it means losing access to all snapshots.
 - **Never commit `secrets.env` or `.pass` files to git.** They are excluded via `.gitignore`.
+
+---
+
+## When the user asks to check for updates
+
+Run the status dashboard which includes update info:
+```bash
+sudo bash {baseDir}/bin/status.sh
+```
+
+Or check manually:
+```bash
+clawhub update quick-backup-restore
+```
+
+Note: `backup.sh` automatically checks for updates once per day (if `updates.check: true` in config). It logs a warning when a new version is available but never updates automatically.

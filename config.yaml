@@ -39,6 +39,16 @@ backup:
     - "__pycache__"     # cache Python
     - ".git"            # repositórios git (já versionados separadamente)
 
+integrity:
+  # Executar "restic check" a cada N backups bem-sucedidos (0 = desativado).
+  # Recomendado: 24 (= uma vez por dia com cron horário).
+  check_every: 24
+
+safety:
+  # Espaço mínimo em disco (MB) no volume do repositório para prosseguir com o backup.
+  # Se menor, o backup é abortado e um alerta Telegram é enviado.
+  min_disk_mb: 500
+
 notifications:
   telegram:
     # Ativar notificação Telegram apenas em caso de falha.
@@ -53,6 +63,15 @@ notifications:
     # Para obter o seu: envie /start para @userinfobot no Telegram.
     # Exemplo: 5472904791
     chat_id: ""
+
+    # Enviar resumo diário com estatísticas de backup (primeiro backup após meia-noite).
+    # Requer enabled: true, bot_token e chat_id configurados.
+    daily_digest: false
+
+updates:
+  # Verificar se há uma versão mais recente no ClawHub (uma vez por dia, non-blocking).
+  # Se encontrada, registra no log — nunca atualiza automaticamente.
+  check: true
 
 logging:
   # Caminho do arquivo de log. Rotacionado automaticamente pelo setup.sh via logrotate.

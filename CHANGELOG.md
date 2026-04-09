@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.0] — 2026-04-09
+
+### Added
+- `bin/status.sh`: health check showing version, snapshots, repo size, disk space, cron, password file warning, integrity counter, update check, and last log lines
+- Disk space guard (`safety.min_disk_mb`): aborts backup and sends Telegram alert if free disk is below threshold
+- Periodic integrity check (`integrity.check_every`): runs `restic check` every N backups (default 24 = daily with hourly cron)
+- Daily digest via Telegram (`notifications.telegram.daily_digest`): summary with snapshot count, repo size, and disk free — sent on first backup after midnight
+- Update version check (`updates.check`): daily non-blocking check against ClawHub API, logs a warning if a newer version is available
+- Logrotate configuration: `setup.sh` now creates `/etc/logrotate.d/quick-backup-restore` for weekly log rotation (4 weeks, compressed)
+
+### Fixed
+- `config.yaml` comment on line 59 claimed logrotate was already set up — now it actually is
+
+---
+
 ## [1.1.1] — 2026-04-09
 
 ### Fixed

@@ -51,6 +51,16 @@ Shows suggestions and asks for confirmation before changing `config.yaml`.
 
 ---
 
+## Status check
+
+```bash
+sudo bin/status.sh
+```
+
+Shows: version, snapshot count, last snapshot time, repo size, disk free, password file status, cron status, integrity check counter, update availability, and recent log lines.
+
+---
+
 ## What gets backed up
 
 OpenClaw's runtime context — not the full system. Your agent's brain, not the OS.
@@ -168,11 +178,21 @@ backup:
     - "*.tmp"
     - ".git"
 
+integrity:
+  check_every: 24   # restic check every N backups (0 = disabled)
+
+safety:
+  min_disk_mb: 500  # abort backup if less than this free
+
 notifications:
   telegram:
     enabled: false       # set to true to get pinged on failures
     bot_token: ""        # from @BotFather
     chat_id: ""          # from @userinfobot
+    daily_digest: false  # daily summary via Telegram
+
+updates:
+  check: true   # daily version check against ClawHub
 ```
 
 ---
