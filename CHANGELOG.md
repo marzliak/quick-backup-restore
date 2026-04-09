@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.1] — 2026-04-09
+
+### Fixed
+- SKILL.md metadata: declared full dependency list (`bash`, `openssl`, `curl`, `jq` + auto_install `restic`, `yq`) — was previously only `bash` and `openssl`
+
+---
+
 ## [1.1.0] — 2026-04-09
 
 ### Changed

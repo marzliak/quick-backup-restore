@@ -1,7 +1,7 @@
 ---
 name: quick-backup-restore
 description: "Use this skill when the user asks to 'backup OpenClaw', 'restore a snapshot', 'roll back memory', 'check backup status', 'view backup history', 'undo agent changes', or 'set up time machine backup'."
-metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
+metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
 ---
 
 # ⏱🦞 Quick Backup and Restore (time machine)

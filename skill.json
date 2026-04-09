@@ -1,6 +1,6 @@
 {
   "name": "quick-backup-restore",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "displayName": "Quick Backup and Restore (time machine)",
   "description": "Hourly incremental backup for OpenClaw instances. Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success.",
   "emoji": "⏱",
