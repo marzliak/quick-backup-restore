@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.4] — 2026-04-09
+
+### Changed
+- SKILL.md description rewritten to lead with the name and purpose (visible as summary on ClawHub)
+
+---
+
 ## [1.2.3] — 2026-04-09
 
 ### Changed

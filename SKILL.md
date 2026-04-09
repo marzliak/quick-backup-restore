@@ -1,6 +1,6 @@
 ---
 name: quick-backup-restore
-description: "Use this skill when the user asks to 'backup OpenClaw', 'restore a snapshot', 'roll back memory', 'check backup status', 'view backup history', 'undo agent changes', 'set up time machine backup', or 'check for updates'."
+description: "Time Clawshine — a simple but powerful time machine for OpenClaw. Hourly encrypted incremental snapshots of your agent's brain via restic. Use when the user asks to backup, restore, roll back, check status, or update."
 metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
 ---
 
