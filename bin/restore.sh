@@ -30,13 +30,15 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]"
             echo ""
-            echo "  snapshot_id   Restic snapshot ID (or 'latest'). Omit to pick interactively."
+            echo "  snapshot_id   Restic snapshot ID, 'latest', or relative time ('2h ago', '1d ago', 'yesterday')"
             echo "  --file path   Restore only this file/directory"
             echo "  --target dir  Restore to this directory (default: /)"
             echo ""
             echo "Examples:"
             echo "  sudo bin/restore.sh                          # interactive"
             echo "  sudo bin/restore.sh latest                   # restore latest to /"
+            echo "  sudo bin/restore.sh '2h ago'                 # restore closest to 2 hours ago"
+            echo "  sudo bin/restore.sh yesterday                # restore closest to yesterday midnight"
             echo "  sudo bin/restore.sh abc123 --target /tmp/r   # restore snapshot to /tmp/r"
             echo "  sudo bin/restore.sh latest --file /root/.openclaw/workspace/MEMORY.md"
             exit 0
@@ -59,8 +61,63 @@ echo ""
 
 # --- Pick snapshot interactively if not provided ----------------------------
 if [[ -z "$SNAPSHOT_ID" ]]; then
-    read -rp "Snapshot ID (or 'latest'): " SNAPSHOT_ID
+    read -rp "Snapshot ID (or 'latest', '2h ago', 'yesterday'): " SNAPSHOT_ID
     [[ -z "$SNAPSHOT_ID" ]] && { echo "Aborted."; exit 0; }
+fi
+
+# --- Resolve relative time to closest snapshot ------------------------------
+_resolve_time_snapshot() {
+    local time_spec="$1"
+    local target_ts
+
+    case "$time_spec" in
+        yesterday)
+            target_ts=$(date -d "yesterday 00:00" '+%s' 2>/dev/null) || \
+            target_ts=$(date -v-1d -j '+%s' 2>/dev/null) || \
+            { echo "ERROR: Cannot parse 'yesterday' — use a snapshot ID instead"; exit 1; }
+            ;;
+        *h\ ago|*h)
+            local hours="${time_spec%%h*}"
+            target_ts=$(date -d "$hours hours ago" '+%s' 2>/dev/null) || \
+            target_ts=$(date -v-"${hours}"H -j '+%s' 2>/dev/null) || \
+            { echo "ERROR: Cannot parse '$time_spec'"; exit 1; }
+            ;;
+        *d\ ago|*d)
+            local days="${time_spec%%d*}"
+            target_ts=$(date -d "$days days ago" '+%s' 2>/dev/null) || \
+            target_ts=$(date -v-"${days}"d -j '+%s' 2>/dev/null) || \
+            { echo "ERROR: Cannot parse '$time_spec'"; exit 1; }
+            ;;
+        *)
+            return 1  # not a time spec
+            ;;
+    esac
+
+    # Find the snapshot closest to target_ts
+    local best_id="" best_diff=999999999
+    while IFS=$'\t' read -r sid stime; do
+        local sts
+        sts=$(date -d "$stime" '+%s' 2>/dev/null || date -j -f '%Y-%m-%dT%H:%M:%S' "$stime" '+%s' 2>/dev/null || continue)
+        local diff=$(( sts - target_ts ))
+        [[ $diff -lt 0 ]] && diff=$(( -diff ))
+        if [[ $diff -lt $best_diff ]]; then
+            best_diff=$diff
+            best_id="$sid"
+        fi
+    done < <(restic_cmd snapshots --json 2>/dev/null | jq -r '.[] | [.short_id, .time[:19]] | @tsv')
+
+    if [[ -z "$best_id" ]]; then
+        echo "ERROR: No snapshots found matching '$time_spec'"
+        exit 1
+    fi
+
+    echo "  → Resolved '$time_spec' to snapshot $best_id (closest match, Δ ${best_diff}s)"
+    SNAPSHOT_ID="$best_id"
+}
+
+# Check if SNAPSHOT_ID looks like a time expression
+if [[ "$SNAPSHOT_ID" != "latest" ]] && [[ "$SNAPSHOT_ID" =~ (ago|yesterday|^[0-9]+[hd]$) ]]; then
+    _resolve_time_snapshot "$SNAPSHOT_ID"
 fi
 
 # --- Build restore args -----------------------------------------------------
@@ -90,3 +147,11 @@ restic_cmd "${RESTORE_ARGS[@]}"
 echo ""
 echo "✓ Restore complete."
 [[ "$TARGET" != "/" ]] && echo "  Files restored to: $TARGET"
+
+# Notify via Telegram
+log_info "Restore completed: snapshot=$SNAPSHOT_ID target=$TARGET"
+tg_send "🔄 *Time Clawshine — Restore realizado*
+🖥 \`$(hostname)\`
+🕐 $(timestamp)
+📸 Snapshot: \`$SNAPSHOT_ID\`
+📁 Target: \`$TARGET\`"

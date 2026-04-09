@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.0] — 2026-04-09
+
+### Added
+- `bin/prune.sh`: manual repository cleanup with `--keep-last`, `--older-than`, `--dry-run`, `--yes` flags. Shows before/after size and sends Telegram notification
+- `bin/test.sh`: self-test suite — validates deps, config, shell syntax on all scripts, and runs a full backup→restore→verify roundtrip in a temp directory
+- `SETUP_GUIDE.md`: interactive setup guide for the OpenClaw agent — walks the user through Telegram, frequency, retention, paths, disk safety, and repo location before running setup.sh
+- Config validation (`tc_validate_config`): validates types, ranges, cron syntax, required Telegram fields, and backup paths on every config load
+- `backup.sh --dry-run`: validates backup without writing (uses `restic backup --dry-run`)
+- `restore.sh` time-based restore: `"2h ago"`, `"1d ago"`, `"yesterday"` — resolves to closest snapshot automatically
+- `restore.sh` Telegram notification on successful restore
+- Systemd timer support: `setup.sh` auto-detects systemd and prefers `time-clawshine.timer` over cron. Falls back to cron if systemd is unavailable
+
+### Changed
+- SKILL.md: complete hero copy rewrite with marketing-grade intro, problem/solution table, and feature highlights
+- SKILL.md: added sections for prune, dry-run, test, guided setup, and time-based restore
+- README.md: added prune, self-test, dry-run, and time-based restore documentation
+- Title unified to "Time Clawshine" across all files
+
+---
+
 ## [1.3.0] — 2026-04-09
 
 ### Changed

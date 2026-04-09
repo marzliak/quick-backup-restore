@@ -12,6 +12,12 @@ source "$TC_ROOT/lib.sh"
 tc_check_deps
 tc_load_config
 
+# --- Parse flags ------------------------------------------------------------
+DRY_RUN=false
+for arg in "$@"; do
+    [[ "$arg" == "--dry-run" ]] && DRY_RUN=true
+done
+
 # Ensure log file exists and is writable
 touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit 1; }
 
@@ -31,6 +37,7 @@ tc_validate_paths || exit 1
 # --- Run backup -------------------------------------------------------------
 RESTIC_ARGS=(backup "${BACKUP_PATHS[@]}" "${EXCLUDES[@]}")
 [[ "$VERBOSE" == "true" ]] && RESTIC_ARGS+=(--verbose)
+[[ "$DRY_RUN" == "true" ]] && RESTIC_ARGS+=(--dry-run)
 
 BACKUP_OUTPUT=$(restic_cmd "${RESTIC_ARGS[@]}" 2>&1)
 BACKUP_EXIT=$?
@@ -51,6 +58,13 @@ else
 fi
 
 log_info "Backup OK"
+
+# --- In dry-run mode, stop here ---------------------------------------------
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_info "Dry run complete — no changes made"
+    log_info "--- Quick Backup and Restore (time machine) finished (dry-run) ---"
+    exit 0
+fi
 
 # --- Apply retention policy -------------------------------------------------
 log_info "Applying retention policy (keep-last $KEEP_LAST)..."

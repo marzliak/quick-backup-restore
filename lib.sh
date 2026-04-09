@@ -74,6 +74,57 @@ tc_load_config() {
     for ex in "${_BASE_EX[@]}" "${_EXTRA_EX[@]}"; do
         [[ -n "$ex" && "$ex" != "null" ]] && EXCLUDES+=("--exclude=$ex")
     done
+
+    # Validate config types
+    tc_validate_config
+}
+
+# --- Config schema validation ------------------------------------------------
+tc_validate_config() {
+    local errors=()
+
+    # retention.keep_last must be a positive integer
+    if ! [[ "$KEEP_LAST" =~ ^[0-9]+$ ]] || [[ "$KEEP_LAST" -le 0 ]]; then
+        errors+=("retention.keep_last must be a positive integer (got: '$KEEP_LAST')")
+    fi
+
+    # safety.min_disk_mb must be a non-negative integer
+    if ! [[ "$MIN_DISK_MB" =~ ^[0-9]+$ ]]; then
+        errors+=("safety.min_disk_mb must be a non-negative integer (got: '$MIN_DISK_MB')")
+    fi
+
+    # integrity.check_every must be a non-negative integer
+    if ! [[ "$CHECK_EVERY" =~ ^[0-9]+$ ]]; then
+        errors+=("integrity.check_every must be a non-negative integer (got: '$CHECK_EVERY')")
+    fi
+
+    # schedule.cron must look like a cron expression (5 fields)
+    if [[ -n "$CRON_EXPR" && "$CRON_EXPR" != "null" ]]; then
+        local field_count
+        field_count=$(echo "$CRON_EXPR" | awk '{print NF}')
+        if [[ "$field_count" -ne 5 ]]; then
+            errors+=("schedule.cron must have 5 fields (got $field_count: '$CRON_EXPR')")
+        fi
+    fi
+
+    # backup.paths must have at least one entry
+    if [[ ${#BACKUP_PATHS[@]} -eq 0 ]]; then
+        errors+=("backup.paths must have at least one path")
+    fi
+
+    # telegram: if enabled, token and chat_id must be set
+    if [[ "$TG_ENABLED" == "true" ]]; then
+        [[ -z "$TG_TOKEN" || "$TG_TOKEN" == "null" ]] && \
+            errors+=("notifications.telegram.bot_token is required when enabled: true")
+        [[ -z "$TG_CHAT_ID" || "$TG_CHAT_ID" == "null" ]] && \
+            errors+=("notifications.telegram.chat_id is required when enabled: true")
+    fi
+
+    if [[ ${#errors[@]} -gt 0 ]]; then
+        echo "[quick-backup-restore] CONFIG VALIDATION ERRORS:"
+        for e in "${errors[@]}"; do echo "  ✗ $e"; done
+        exit 1
+    fi
 }
 
 # --- Logging -----------------------------------------------------------------

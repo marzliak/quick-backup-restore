@@ -37,6 +37,10 @@ sudo bash {baseDir}/bin/setup.sh
 - **Daily digest** — Telegram summary with snapshot count, repo size, disk free
 - **Update awareness** — checks ClawHub daily, never auto-updates
 - **Status dashboard** — `bin/status.sh` for a full health check at a glance
+- **Repository cleanup** — `bin/prune.sh` to manually reclaim disk space
+- **Self-test** — `bin/test.sh` validates backup→restore→verify roundtrip
+- **Guided setup** — agent reads `SETUP_GUIDE.md` and walks the user through every option
+- **Dry-run mode** — `backup.sh --dry-run` to validate without writing
 - **100% offline** — no data leaves your machine (Telegram and update check are opt-in)
 
 ---
@@ -51,11 +55,15 @@ sudo bash {baseDir}/bin/setup.sh
 
 ## When the user asks to set up or install Time Clawshine
 
+**First, read `{baseDir}/SETUP_GUIDE.md` and walk the user through each step interactively.** The guide covers Telegram, frequency, retention, extra paths, disk safety, and repo location. Configure `config.yaml` based on their answers before running setup.
+
+If the user wants a quick install without customization:
+
 1. Check if already set up:
    ```bash
    restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass snapshots 2>/dev/null && echo "Already initialized"
    ```
-2. If not initialized, ask the user to fill in `{baseDir}/config.yaml` with their Telegram `bot_token` and `chat_id`, then run:
+2. Run setup:
    ```bash
    sudo bash {baseDir}/bin/setup.sh
    ```
@@ -119,6 +127,12 @@ restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-re
 sudo bash {baseDir}/bin/restore.sh
 ```
 
+**Restore by time (e.g. "roll back 2 hours"):**
+```bash
+sudo bash {baseDir}/bin/restore.sh "2h ago" --target /tmp/tc-restore
+sudo bash {baseDir}/bin/restore.sh yesterday --target /tmp/tc-restore
+```
+
 **Restore a specific file from the latest snapshot:**
 ```bash
 sudo bash {baseDir}/bin/restore.sh latest --file /root/.openclaw/workspace/MEMORY.md --target /tmp/tc-restore
@@ -164,6 +178,34 @@ This scans the system for:
 - Common junk patterns to exclude (e.g. `node_modules`, `*.log`, `cache/`)
 
 Shows suggestions and asks for confirmation before changing `config.yaml`.
+
+---
+
+## When the user asks to clean up or free disk space
+
+```bash
+sudo bash {baseDir}/bin/prune.sh
+```
+
+Options:
+- `--keep-last 24` — keep only last 24 snapshots
+- `--older-than 7d` — remove snapshots older than 7 days
+- `--dry-run` — preview what would be removed
+- `--yes` — skip confirmation prompt
+
+---
+
+## When the user asks to run a dry-run or test backup
+
+**Dry-run (validates without writing):**
+```bash
+sudo bash {baseDir}/bin/backup.sh --dry-run
+```
+
+**Self-test (full backup→restore→verify roundtrip in temp directory):**
+```bash
+bash {baseDir}/bin/test.sh
+```
 
 ---
 

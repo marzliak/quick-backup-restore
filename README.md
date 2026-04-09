@@ -34,6 +34,11 @@ Done. Backups run every hour at :05.
 | `--skip-backup` | `setup.sh` | Skip the initial validation backup after setup |
 | `--no-system-install` | `setup.sh` | Repo-only setup: creates repo dir, generates password, inits restic. Skips apt-get, cron registration, and binary install to `/usr/local/bin` |
 | `--assume-yes` / `-y` | `setup.sh` | Skip dependency installation confirmation prompt (for CI/automated use) |
+| `--dry-run` | `backup.sh` | Show what would be backed up without writing |
+| `--keep-last N` | `prune.sh` | Override retention for this run |
+| `--older-than DURATION` | `prune.sh` | Remove snapshots older than duration (e.g. `7d`, `24h`) |
+| `--dry-run` | `prune.sh` | Preview cleanup without deleting |
+| `--yes` / `-y` | `prune.sh` | Skip confirmation prompt |
 
 ---
 
@@ -58,6 +63,29 @@ sudo bin/status.sh
 ```
 
 Shows: version, snapshot count, last snapshot time, repo size, disk free, password file status, cron status, integrity check counter, update availability, and recent log lines.
+
+---
+
+## Cleanup (prune)
+
+```bash
+sudo bin/prune.sh                     # use config retention
+sudo bin/prune.sh --keep-last 24      # keep only last 24
+sudo bin/prune.sh --older-than 7d     # remove older than 7 days
+sudo bin/prune.sh --dry-run           # preview without deleting
+```
+
+Shows before/after snapshot count and repo size. Sends Telegram notification with space reclaimed.
+
+---
+
+## Self-test
+
+```bash
+bash bin/test.sh
+```
+
+Validates: dependencies, config syntax, shell syntax on all scripts, and a full backup→restore→verify roundtrip in a temp directory. No root required.
 
 ---
 
@@ -129,6 +157,10 @@ add992ac  2026-03-04 20:05:04  openclaw       /root/.openclaw/...
 ```bash
 # Interactive — lists snapshots and prompts for confirmation
 sudo bin/restore.sh
+
+# Restore by time — "2 hours ago", "yesterday"
+sudo bin/restore.sh "2h ago" --target /tmp/openclaw-restore
+sudo bin/restore.sh yesterday --target /tmp/openclaw-restore
 
 # Restore latest snapshot to a temp dir (safe, non-destructive)
 sudo bin/restore.sh latest --target /tmp/openclaw-restore
