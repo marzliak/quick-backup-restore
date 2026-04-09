@@ -12,7 +12,7 @@ This skill gives your agent hourly snapshots of its own brain. Restic-powered, e
 
 ## Overview
 
-Quick Backup and Restore protects OpenClaw's runtime context (memory, sessions, credentials, config) with hourly snapshots. It runs automatically via cron. You can also trigger it manually or restore any point in the last 72 hours.
+Quick Backup and Restore protects OpenClaw's runtime context (memory, sessions, config) with hourly snapshots. It runs automatically via cron. You can also trigger it manually or restore any point in the last 72 hours.
 
 **Repository:** `{baseDir}/../../../var/backups/quick-backup-restore` (or as configured in `{baseDir}/config.yaml`)
 **Log:** `/var/log/quick-backup-restore.log`
