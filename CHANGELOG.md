@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.1] — 2026-04-09
+
+### Fixed
+- SKILL.md: removed false claim that `credentials/` are backed up by default — only paths listed in `config.yaml` are covered
+
+---
+
 ## [1.2.0] — 2026-04-09
 
 ### Added
