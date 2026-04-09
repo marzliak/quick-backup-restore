@@ -9,6 +9,25 @@ set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# --- Parse flags ------------------------------------------------------------
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: bin/test.sh"
+            echo ""
+            echo "Runs the Time Clawshine self-test suite:"
+            echo "  - Dependency checks"
+            echo "  - Config validation"
+            echo "  - Shell syntax checks on all scripts"
+            echo "  - Backup → restore → verify roundtrip"
+            echo ""
+            echo "Does NOT require root — uses temp directories."
+            echo "Exit code: 0 if all tests pass, 1 if any fail."
+            exit 0
+            ;;
+    esac
+done
+
 # --- Colors (if supported) --------------------------------------------------
 if [[ -t 1 ]]; then
     GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; NC='\033[0m'
@@ -74,7 +93,7 @@ else
 fi
 
 # --- Shell syntax checks on all scripts ------------------------------------
-for script in lib.sh bin/backup.sh bin/setup.sh bin/restore.sh bin/status.sh bin/customize.sh bin/prune.sh bin/test.sh; do
+for script in lib.sh bin/backup.sh bin/setup.sh bin/restore.sh bin/status.sh bin/customize.sh bin/prune.sh bin/test.sh bin/uninstall.sh; do
     _test "Syntax check: $script"
     if [[ -f "$TC_ROOT/$script" ]]; then
         if bash -n "$TC_ROOT/$script" 2>/dev/null; then
@@ -84,6 +103,16 @@ for script in lib.sh bin/backup.sh bin/setup.sh bin/restore.sh bin/status.sh bin
         fi
     else
         _fail "file not found"
+    fi
+done
+
+# --- --help flag exits 0 on all scripts ------------------------------------
+for script in bin/backup.sh bin/setup.sh bin/restore.sh bin/status.sh bin/customize.sh bin/prune.sh bin/test.sh bin/uninstall.sh; do
+    _test "--help exits 0: $script"
+    if bash "$TC_ROOT/$script" --help > /dev/null 2>&1; then
+        _ok
+    else
+        _fail "--help returned non-zero"
     fi
 done
 
@@ -139,6 +168,23 @@ if RESTIC_PASSWORD_FILE="$TEST_PASS" restic init -r "$TEST_REPO" > /dev/null 2>&
         _ok
     else
         _fail "restic check failed"
+    fi
+
+    # Prune dry-run (should succeed without removing the single snapshot)
+    _test "Roundtrip: prune --dry-run"
+    if RESTIC_PASSWORD_FILE="$TEST_PASS" restic forget --keep-last 1 --prune --dry-run -r "$TEST_REPO" > /dev/null 2>&1; then
+        _ok
+    else
+        _fail "restic forget --dry-run failed"
+    fi
+
+    # Verify password file permissions
+    _test "Roundtrip: password file permissions"
+    PASS_PERMS=$(stat -c '%a' "$TEST_PASS" 2>/dev/null || stat -f '%Lp' "$TEST_PASS" 2>/dev/null || echo "?")
+    if [[ "$PASS_PERMS" == "600" ]]; then
+        _ok
+    else
+        _fail "expected 600, got $PASS_PERMS"
     fi
 else
     _fail "restic init failed"

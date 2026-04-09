@@ -1,4 +1,6 @@
-# ⏱🦞 Quick Backup and Restore (time machine)
+# ⏱🪞 Time Clawshine
+
+[![CI](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml/badge.svg)](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml)
 
 **Hourly incremental backup for OpenClaw instances.**
 
@@ -31,6 +33,7 @@ Done. Backups run every hour at :05.
 
 | Flag | Script | Description |
 |------|--------|-------------|
+| `--help` / `-h` | all scripts | Show usage and exit |
 | `--skip-backup` | `setup.sh` | Skip the initial validation backup after setup |
 | `--no-system-install` | `setup.sh` | Repo-only setup: creates repo dir, generates password, inits restic. Skips apt-get, cron registration, and binary install to `/usr/local/bin` |
 | `--assume-yes` / `-y` | `setup.sh` | Skip dependency installation confirmation prompt (for CI/automated use) |
@@ -39,6 +42,8 @@ Done. Backups run every hour at :05.
 | `--older-than DURATION` | `prune.sh` | Remove snapshots older than duration (e.g. `7d`, `24h`) |
 | `--dry-run` | `prune.sh` | Preview cleanup without deleting |
 | `--yes` / `-y` | `prune.sh` | Skip confirmation prompt |
+| `--yes` / `-y` | `uninstall.sh` | Skip confirmation (system files only, preserves data) |
+| `--purge` | `uninstall.sh` | Also delete repository, password file, and logs (DESTRUCTIVE) |
 
 ---
 
@@ -89,6 +94,21 @@ Validates: dependencies, config syntax, shell syntax on all scripts, and a full 
 
 ---
 
+## Uninstall
+
+```bash
+# Remove system files (preserves your backups and password)
+sudo bin/uninstall.sh
+
+# Remove everything including backups (DESTRUCTIVE — asks for confirmation)
+sudo bin/uninstall.sh --purge
+```
+
+Removes: systemd timer/service, cron job, logrotate config, installed binary, lock and marker files.
+Preserves (unless `--purge`): backup repository, password file, log file, source files.
+
+---
+
 ## What gets backed up
 
 OpenClaw's runtime context — not the full system. Your agent's brain, not the OS.
@@ -114,7 +134,7 @@ After `sudo bin/setup.sh`:
 [2026-03-04 18:17:04] [INFO ] Initializing restic repository at /var/backups/quick-backup-restore
 [2026-03-04 18:17:05] [INFO ] Repository initialized OK
 [2026-03-04 18:17:06] [INFO ] Cron job registered: 5 * * * *
-[2026-03-04 18:17:06] [INFO ] --- Quick Backup and Restore (time machine) setup complete ---
+[2026-03-04 18:17:06] [INFO ] --- Time Clawshine setup complete ---
 ```
 
 After `sudo bin/backup.sh` (first run):
@@ -122,7 +142,7 @@ After `sudo bin/backup.sh` (first run):
 ```
 [2026-03-04 18:18:01] [INFO ] Starting backup...
 [2026-03-04 18:18:02] [INFO ]   snapshot 702a8854 saved
-[2026-03-04 18:18:03] [INFO ] --- Quick Backup and Restore (time machine) finished ---
+[2026-03-04 18:18:03] [INFO ] --- Time Clawshine finished ---
 ```
 
 After `sudo bin/backup.sh` (subsequent runs — incremental):
@@ -131,7 +151,7 @@ After `sudo bin/backup.sh` (subsequent runs — incremental):
 [2026-03-04 19:05:01] [INFO ] Starting backup...
 [2026-03-04 19:05:01] [INFO ]   using parent snapshot 702a8854
 [2026-03-04 19:05:01] [INFO ]   snapshot 596e1cb3 saved
-[2026-03-04 19:05:02] [INFO ] --- Quick Backup and Restore (time machine) finished ---
+[2026-03-04 19:05:02] [INFO ] --- Time Clawshine finished ---
 ```
 
 Listing snapshots:
@@ -232,13 +252,13 @@ updates:
 ## How it fits in your backup strategy
 
 ```
-Quick Backup and Restore (time machine) ← time machine layer (this tool)
+Time Clawshine              ← time machine layer (this tool)
     ↓ hourly, local, 72 snapshots
 Full DR backup          ← disaster recovery layer (e.g. restic to remote NAS/cloud)
     ↓ daily, off-VM
 ```
 
-Quick Backup and Restore (time machine) protects against "the agent broke its own memory 2 hours ago."
+Time Clawshine protects against "the agent broke its own memory 2 hours ago."
 Your DR backup protects against "the VM is gone."
 
 ---

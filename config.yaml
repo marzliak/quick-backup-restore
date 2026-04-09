@@ -1,8 +1,8 @@
 repository:
   # Caminho local onde os snapshots restic serão armazenados.
   # Pode ser um path local, S3, SFTP, etc. (qualquer backend suportado pelo restic)
-  # Exemplo local: /var/backups/quick-backup-restore
-  # Exemplo S3:    s3:s3.amazonaws.com/meu-bucket/quick-backup-restore
+  # Exemplo local: /var/backups/time-clawshine
+  # Exemplo S3:    s3:s3.amazonaws.com/meu-bucket/time-clawshine
   path: /var/backups/quick-backup-restore
 
   # Arquivo com a senha de criptografia do repositório restic (AES-256).

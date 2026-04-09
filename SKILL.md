@@ -1,7 +1,7 @@
 ---
 name: quick-backup-restore
 description: "Time Clawshine — a simple but powerful time machine for OpenClaw. Hourly encrypted incremental snapshots of your agent's brain via restic. Use when the user asks to backup, restore, roll back, check status, or update."
-metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Quick Backup and Restore (time machine) setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
+metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Time Clawshine setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
 ---
 
 # ⏱🦞 Time Clawshine
@@ -41,15 +41,16 @@ sudo bash {baseDir}/bin/setup.sh
 - **Self-test** — `bin/test.sh` validates backup→restore→verify roundtrip
 - **Guided setup** — agent reads `SETUP_GUIDE.md` and walks the user through every option
 - **Dry-run mode** — `backup.sh --dry-run` to validate without writing
+- **Uninstall** — `bin/uninstall.sh` for clean removal (preserves data by default)
 - **100% offline** — no data leaves your machine (Telegram and update check are opt-in)
 
 ---
 
 ## Technical reference
 
-**Repository:** configured in `{baseDir}/config.yaml` (default: `/var/backups/quick-backup-restore`)
-**Log:** `/var/log/quick-backup-restore.log` (rotated weekly via logrotate)
-**Password file:** `/etc/quick-backup-restore.pass` (chmod 600 — **back this up separately**)
+**Repository:** configured in `{baseDir}/config.yaml`
+**Log:** configured in `config.yaml` under `logging.file` (rotated weekly via logrotate)
+**Password file:** configured in `config.yaml` under `repository.password_file` (chmod 600 — **back this up separately**)
 
 ---
 
@@ -61,7 +62,7 @@ If the user wants a quick install without customization:
 
 1. Check if already set up:
    ```bash
-   restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass snapshots 2>/dev/null && echo "Already initialized"
+   sudo bash {baseDir}/bin/status.sh
    ```
 2. Run setup:
    ```bash
@@ -75,9 +76,9 @@ If the user wants a quick install without customization:
    ```bash
    sudo bash {baseDir}/bin/setup.sh --assume-yes
    ```
-3. Confirm setup succeeded by tailing the log:
+3. Confirm setup succeeded:
    ```bash
-   tail -5 /var/log/quick-backup-restore.log
+   sudo bash {baseDir}/bin/status.sh
    ```
 
 ---
@@ -90,7 +91,7 @@ sudo bash {baseDir}/bin/backup.sh
 
 Then confirm with:
 ```bash
-tail -5 /var/log/quick-backup-restore.log
+sudo bash {baseDir}/bin/status.sh
 ```
 
 ---
@@ -104,18 +105,24 @@ sudo bash {baseDir}/bin/status.sh
 
 Or show the last 20 log lines:
 ```bash
-tail -20 /var/log/quick-backup-restore.log
+sudo tail -20 "$(yq e '.logging.file' {baseDir}/config.yaml)"
 ```
 
 List all snapshots (most recent first):
 ```bash
-restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass snapshots
+sudo bash {baseDir}/bin/restore.sh --help
+# Or directly:
+REPO=$(yq e '.repository.path' {baseDir}/config.yaml)
+PASS=$(yq e '.repository.password_file' {baseDir}/config.yaml)
+restic -r "$REPO" --password-file "$PASS" snapshots
 ```
 
 Show what changed between the two most recent snapshots:
 ```bash
-SNAPS=$(restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass snapshots --json | jq -r '.[-2:][].id')
-restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass diff $SNAPS
+REPO=$(yq e '.repository.path' {baseDir}/config.yaml)
+PASS=$(yq e '.repository.password_file' {baseDir}/config.yaml)
+SNAPS=$(restic -r "$REPO" --password-file "$PASS" snapshots --json | jq -r '.[-2:][].id')
+restic -r "$REPO" --password-file "$PASS" diff $SNAPS
 ```
 
 ---
@@ -152,7 +159,9 @@ Always confirm with the user before executing a full restore to `/`.
 ## When the user asks to check repo integrity
 
 ```bash
-restic -r /var/backups/quick-backup-restore --password-file /etc/quick-backup-restore.pass check
+REPO=$(yq e '.repository.path' {baseDir}/config.yaml)
+PASS=$(yq e '.repository.password_file' {baseDir}/config.yaml)
+restic -r "$REPO" --password-file "$PASS" check
 ```
 
 ---
@@ -211,11 +220,28 @@ bash {baseDir}/bin/test.sh
 
 ## Important notes
 
-- **Silent by design:** cron runs every hour at :05 and logs to `/var/log/quick-backup-restore.log`. No output unless there is a failure.
+- **Silent by design:** cron/systemd runs every hour at :05 and logs to the configured log file. No output unless there is a failure.
 - **Telegram fires only on failure.** If the user has not configured `bot_token` and `chat_id`, failures are logged only.
 - **This is the time machine layer.** It protects against "the agent broke something in the last 3 days." It is NOT a disaster recovery backup — that should be handled by an off-VM backup (e.g. restic to a remote server).
-- **Password:** The restic repository is AES-256 encrypted. The password is at `/etc/quick-backup-restore.pass` (chmod 600). Losing it means losing access to all snapshots.
+- **Password:** The restic repository is AES-256 encrypted. The password file location is configured in `config.yaml` (chmod 600). Losing it means losing access to all snapshots.
 - **Never commit `secrets.env` or `.pass` files to git.** They are excluded via `.gitignore`.
+
+---
+
+## When the user asks to uninstall or remove Time Clawshine
+
+```bash
+sudo bash {baseDir}/bin/uninstall.sh
+```
+
+This removes all system artifacts (systemd timer/service, cron, logrotate, binary, lock/marker files) but **preserves** the backup repository and password file.
+
+To also delete all backup data (irreversible):
+```bash
+sudo bash {baseDir}/bin/uninstall.sh --purge
+```
+
+The source files in the skill directory are never touched — can re-install with `sudo bin/setup.sh`.
 
 ---
 

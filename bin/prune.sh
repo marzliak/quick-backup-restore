@@ -7,6 +7,29 @@
 set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Early --help (before sourcing lib.sh so it works without config) -------
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: sudo bin/prune.sh [options]"
+            echo ""
+            echo "Options:"
+            echo "  --keep-last N       Keep the last N snapshots (default: from config.yaml)"
+            echo "  --older-than DURATION  Remove snapshots older than duration (e.g. 7d, 24h, 30d)"
+            echo "  --dry-run           Show what would be removed without removing"
+            echo "  --yes, -y           Skip confirmation prompt"
+            echo ""
+            echo "Examples:"
+            echo "  sudo bin/prune.sh                     # use config retention"
+            echo "  sudo bin/prune.sh --keep-last 24      # keep only last 24 snapshots"
+            echo "  sudo bin/prune.sh --older-than 7d     # remove snapshots older than 7 days"
+            echo "  sudo bin/prune.sh --dry-run            # preview without deleting"
+            exit 0
+            ;;
+    esac
+done
+
 source "$TC_ROOT/lib.sh"
 
 tc_check_deps
@@ -33,22 +56,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --yes|-y)
             ASSUME_YES=true; shift
-            ;;
-        --help|-h)
-            echo "Usage: sudo bin/prune.sh [options]"
-            echo ""
-            echo "Options:"
-            echo "  --keep-last N       Keep the last N snapshots (default: from config.yaml)"
-            echo "  --older-than DURATION  Remove snapshots older than duration (e.g. 7d, 24h, 30d)"
-            echo "  --dry-run           Show what would be removed without removing"
-            echo "  --yes, -y           Skip confirmation prompt"
-            echo ""
-            echo "Examples:"
-            echo "  sudo bin/prune.sh                     # use config retention (keep_last: $KEEP_LAST)"
-            echo "  sudo bin/prune.sh --keep-last 24      # keep only last 24 snapshots"
-            echo "  sudo bin/prune.sh --older-than 7d     # remove snapshots older than 7 days"
-            echo "  sudo bin/prune.sh --dry-run            # preview without deleting"
-            exit 0
             ;;
         *) echo "Unknown flag: $1. Use --help for usage."; exit 1 ;;
     esac

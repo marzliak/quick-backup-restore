@@ -1,32 +1,45 @@
 #!/bin/bash
 # =============================================================================
-# bin/backup.sh — Quick Backup and Restore (time machine) backup engine
-# Called by cron every hour — silent on success, Telegram on failure
+# bin/backup.sh — Time Clawshine backup engine
+# Called by cron/systemd every hour — silent on success, Telegram on failure
 # =============================================================================
 
 set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Parse flags (before sourcing lib.sh so --help works without config) -----
+DRY_RUN=false
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=true ;;
+        --help|-h)
+            echo "Usage: bin/backup.sh [options]"
+            echo ""
+            echo "Options:"
+            echo "  --dry-run     Show what would be backed up without writing"
+            echo "  --help, -h    Show this help"
+            echo ""
+            echo "Normally called automatically by cron/systemd. Can be run manually."
+            exit 0
+            ;;
+    esac
+done
+
 source "$TC_ROOT/lib.sh"
 
 tc_check_deps
 tc_load_config
 
-# --- Parse flags ------------------------------------------------------------
-DRY_RUN=false
-for arg in "$@"; do
-    [[ "$arg" == "--dry-run" ]] && DRY_RUN=true
-done
-
 # Ensure log file exists and is writable
 touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit 1; }
 
 # --- Concurrency lock — skip if another backup is already running -----------
-exec 200>/var/lock/quick-backup-restore.lock
-chmod 600 /var/lock/quick-backup-restore.lock 2>/dev/null || true
+exec 200>/var/lock/time-clawshine.lock
+chmod 600 /var/lock/time-clawshine.lock 2>/dev/null || true
 flock -n 200 || { log_warn "Another backup is already running — skipping"; exit 0; }
 
-log_info "--- Quick Backup and Restore (time machine) started ---"
+log_info "--- Time Clawshine started ---"
 
 # --- Disk space guard -------------------------------------------------------
 tc_check_disk "$MIN_DISK_MB" || exit 1
@@ -62,7 +75,7 @@ log_info "Backup OK"
 # --- In dry-run mode, stop here ---------------------------------------------
 if [[ "$DRY_RUN" == "true" ]]; then
     log_info "Dry run complete — no changes made"
-    log_info "--- Quick Backup and Restore (time machine) finished (dry-run) ---"
+    log_info "--- Time Clawshine finished (dry-run) ---"
     exit 0
 fi
 
@@ -83,7 +96,7 @@ log_info "Retention OK"
 
 # --- Integrity check (periodic restic check) --------------------------------
 if [[ "$CHECK_EVERY" -gt 0 ]]; then
-    COUNTER_FILE="/var/tmp/quick-backup-restore-check-counter"
+    COUNTER_FILE="/var/tmp/time-clawshine-check-counter"
     COUNTER=0
     [[ -f "$COUNTER_FILE" ]] && COUNTER=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
     COUNTER=$(( COUNTER + 1 ))
@@ -107,7 +120,7 @@ fi
 
 # --- Daily digest (first backup after midnight) -----------------------------
 if [[ "$TG_DAILY_DIGEST" == "true" && "$TG_ENABLED" == "true" ]]; then
-    DIGEST_MARKER="/var/tmp/quick-backup-restore-digest-date"
+    DIGEST_MARKER="/var/tmp/time-clawshine-digest-date"
     TODAY=$(date '+%Y-%m-%d')
     LAST_DIGEST=""
     [[ -f "$DIGEST_MARKER" ]] && LAST_DIGEST=$(cat "$DIGEST_MARKER" 2>/dev/null || true)
@@ -126,7 +139,7 @@ fi
 
 # --- Update version check (once per day, non-blocking) ----------------------
 if [[ "$UPDATE_CHECK" == "true" ]]; then
-    UPDATE_MARKER="/var/tmp/quick-backup-restore-update-date"
+    UPDATE_MARKER="/var/tmp/time-clawshine-update-date"
     TODAY=${TODAY:-$(date '+%Y-%m-%d')}
     LAST_UPDATE_CHECK=""
     [[ -f "$UPDATE_MARKER" ]] && LAST_UPDATE_CHECK=$(cat "$UPDATE_MARKER" 2>/dev/null || true)
@@ -142,4 +155,4 @@ if [[ "$UPDATE_CHECK" == "true" ]]; then
     fi
 fi
 
-log_info "--- Quick Backup and Restore (time machine) finished ---"
+log_info "--- Time Clawshine finished ---"

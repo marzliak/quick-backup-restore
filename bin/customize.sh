@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# bin/customize.sh — Quick Backup and Restore (time machine) local path customization
+# bin/customize.sh — Time Clawshine local path customization
 #
 # Analyzes your system locally (no API calls, no data leaves the machine) to suggest:
 #   - Extra paths worth backing up (whitelist)
@@ -15,6 +15,23 @@
 set -uo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Early --help (before sourcing lib.sh so it works without config) -------
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: sudo bin/customize.sh"
+            echo ""
+            echo "Analyzes your system locally (no API calls, 100% offline) and suggests:"
+            echo "  - Extra paths worth backing up (e.g. ~/.ssh, ~/.config)"
+            echo "  - Junk patterns to exclude (e.g. node_modules, *.log)"
+            echo ""
+            echo "Shows suggestions and asks for confirmation before modifying config.yaml."
+            exit 0
+            ;;
+    esac
+done
+
 source "$TC_ROOT/lib.sh"
 
 tc_check_deps
@@ -24,7 +41,7 @@ tc_load_config
 [[ $EUID -eq 0 ]] || { echo "ERROR: Run as root (sudo bin/customize.sh)"; exit 1; }
 
 echo "╔════════════════════════════════════════════════════════════════════╗"
-echo "║  Quick Backup and Restore (time machine) — Customize Backup Paths  ║"
+echo "║      Time Clawshine — Customize Backup Paths                ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "This command will:"

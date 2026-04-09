@@ -1,6 +1,6 @@
 {
   "name": "quick-backup-restore",
-  "version": "2.0.2",
+  "version": "3.0.0",
   "displayName": "Time Clawshine",
   "description": "Time Clawshine is a simple but powerful time machine for OpenClaw — hourly encrypted snapshots of your agent's brain (memory, sessions, config) so you can roll back to exactly 2 hours ago, not yesterday. Powered by restic's incremental deduplication — only changed bytes are stored, so backups are near-instant and storage stays tiny. YAML-configured, silent on success, Telegram-notified on failure.",
   "emoji": "⏱",

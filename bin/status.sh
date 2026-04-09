@@ -1,12 +1,27 @@
 #!/bin/bash
 # =============================================================================
-# bin/status.sh — Quick Backup and Restore (time machine) health check
+# bin/status.sh — Time Clawshine health check
 # Run: sudo bin/status.sh
 # =============================================================================
 
 set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Early --help (before sourcing lib.sh so it works without config) -------
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: sudo bin/status.sh"
+            echo ""
+            echo "Shows: version, snapshots, repo size, disk free, password file,"
+            echo "       scheduler status, integrity check counter, update availability,"
+            echo "       and recent log lines."
+            exit 0
+            ;;
+    esac
+done
+
 source "$TC_ROOT/lib.sh"
 
 tc_check_deps
@@ -15,7 +30,7 @@ tc_load_config
 VERSION=$(tc_current_version)
 
 echo "╔═════════════════════════════════════════════════╗"
-echo "║  Quick Backup and Restore — Status               ║"
+echo "║          Time Clawshine — Status                ║"
 echo "╚═════════════════════════════════════════════════╝"
 echo ""
 
@@ -63,7 +78,7 @@ fi
 
 # --- Cron -------------------------------------------------------------------
 echo ""
-CRON_FILE="/etc/cron.d/quick-backup-restore"
+CRON_FILE="/etc/cron.d/time-clawshine"
 if [[ -f "$CRON_FILE" ]]; then
     echo "  Cron job        : $CRON_FILE"
     echo "  Schedule        : $CRON_EXPR"
@@ -73,7 +88,7 @@ fi
 
 # --- Integrity check --------------------------------------------------------
 if [[ "$CHECK_EVERY" -gt 0 ]] 2>/dev/null; then
-    COUNTER_FILE="/var/tmp/quick-backup-restore-check-counter"
+    COUNTER_FILE="/var/tmp/time-clawshine-check-counter"
     if [[ -f "$COUNTER_FILE" ]]; then
         COUNTER=$(cat "$COUNTER_FILE" 2>/dev/null || echo "?")
         echo "  Integrity check : every $CHECK_EVERY backups (counter: $COUNTER)"

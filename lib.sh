@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# lib.sh — shared functions for Quick Backup and Restore (time machine)
+# lib.sh — shared functions for Time Clawshine
 # Sourced by all bin/ scripts via: source "$TC_ROOT/lib.sh"
 # =============================================================================
 
@@ -9,7 +9,7 @@
 TC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${TC_CONFIG:-$TC_ROOT/config.yaml}"
 
-[[ -f "$CONFIG_FILE" ]] || { echo "[quick-backup-restore] ERROR: config.yaml not found at $CONFIG_FILE"; exit 1; }
+[[ -f "$CONFIG_FILE" ]] || { echo "[time-clawshine] ERROR: config.yaml not found at $CONFIG_FILE"; exit 1; }
 
 # --- YAML parser (requires yq v4) -------------------------------------------
 _cfg() {
@@ -50,7 +50,7 @@ tc_load_config() {
     _require_cfg() {
         local name="$1" val="$2"
         if [[ -z "$val" || "$val" == "null" ]]; then
-            echo "[quick-backup-restore] ERROR: config.yaml missing required field: $name"
+            echo "[time-clawshine] ERROR: config.yaml missing required field: $name"
             exit 1
         fi
     }
@@ -121,7 +121,7 @@ tc_validate_config() {
     fi
 
     if [[ ${#errors[@]} -gt 0 ]]; then
-        echo "[quick-backup-restore] CONFIG VALIDATION ERRORS:"
+        echo "[time-clawshine] CONFIG VALIDATION ERRORS:"
         for e in "${errors[@]}"; do echo "  ✗ $e"; done
         exit 1
     fi
@@ -200,7 +200,7 @@ tc_check_deps() {
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "[quick-backup-restore] ERROR: Missing dependencies: ${missing[*]}"
+        echo "[time-clawshine] ERROR: Missing dependencies: ${missing[*]}"
         echo "Run: sudo bin/setup.sh"
         exit 1
     fi

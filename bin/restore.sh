@@ -1,12 +1,35 @@
 #!/bin/bash
 # =============================================================================
-# bin/restore.sh — Quick Backup and Restore (time machine) interactive restore helper
+# bin/restore.sh — Time Clawshine interactive restore helper
 # Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]
 # =============================================================================
 
 set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Early --help (before sourcing lib.sh so it works without config) -------
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            echo "Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]"
+            echo ""
+            echo "  snapshot_id   Restic snapshot ID, 'latest', or relative time ('2h ago', '1d ago', 'yesterday')"
+            echo "  --file path   Restore only this file/directory"
+            echo "  --target dir  Restore to this directory (default: /)"
+            echo ""
+            echo "Examples:"
+            echo "  sudo bin/restore.sh                          # interactive"
+            echo "  sudo bin/restore.sh latest                   # restore latest to /"
+            echo "  sudo bin/restore.sh '2h ago'                 # restore closest to 2 hours ago"
+            echo "  sudo bin/restore.sh yesterday                # restore closest to yesterday midnight"
+            echo "  sudo bin/restore.sh abc123 --target /tmp/r   # restore snapshot to /tmp/r"
+            echo "  sudo bin/restore.sh latest --file /root/.openclaw/workspace/MEMORY.md"
+            exit 0
+            ;;
+    esac
+done
+
 source "$TC_ROOT/lib.sh"
 
 tc_check_deps
@@ -27,29 +50,13 @@ while [[ $# -gt 0 ]]; do
             [[ $# -ge 2 ]] || { echo "ERROR: --target requires an argument"; exit 1; }
             TARGET="$2"; shift 2
             ;;
-        --help|-h)
-            echo "Usage: sudo bin/restore.sh [snapshot_id] [--file path] [--target dir]"
-            echo ""
-            echo "  snapshot_id   Restic snapshot ID, 'latest', or relative time ('2h ago', '1d ago', 'yesterday')"
-            echo "  --file path   Restore only this file/directory"
-            echo "  --target dir  Restore to this directory (default: /)"
-            echo ""
-            echo "Examples:"
-            echo "  sudo bin/restore.sh                          # interactive"
-            echo "  sudo bin/restore.sh latest                   # restore latest to /"
-            echo "  sudo bin/restore.sh '2h ago'                 # restore closest to 2 hours ago"
-            echo "  sudo bin/restore.sh yesterday                # restore closest to yesterday midnight"
-            echo "  sudo bin/restore.sh abc123 --target /tmp/r   # restore snapshot to /tmp/r"
-            echo "  sudo bin/restore.sh latest --file /root/.openclaw/workspace/MEMORY.md"
-            exit 0
-            ;;
         -*) echo "Unknown flag: $1"; exit 1 ;;
         *)  SNAPSHOT_ID="$1"; shift ;;
     esac
 done
 
 echo "╔═════════════════════════════════════════════════════╗"
-echo "║  Quick Backup and Restore (time machine) — Restore  ║"
+echo "║          Time Clawshine — Restore                ║"
 echo "╚═════════════════════════════════════════════════════╝"
 echo ""
 
