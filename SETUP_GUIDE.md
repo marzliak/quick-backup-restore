@@ -137,7 +137,7 @@ sudo bash {baseDir}/bin/setup.sh
 ```
 
 After setup completes, remind the user:
-> "⚠ **Back up your password file** (`/etc/quick-backup-restore.pass`) separately. Without it, your snapshots are unrecoverable — even if the repository is intact."
+> "⚠ **Back up your password file** (the path shown in `config.yaml` → `repository.password_file`) separately. Without it, your snapshots are unrecoverable — even if the repository is intact."
 
 ---
 

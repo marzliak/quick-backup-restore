@@ -92,17 +92,26 @@ else
         YQ_BIN="/usr/local/bin/yq"
         YQ_BINARY="yq_linux_amd64"
         YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
-        YQ_CHECKSUMS_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums"
-        curl -sL "$YQ_URL" -o "$YQ_BIN"
-        EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUMS_URL" | grep "  ${YQ_BINARY}$" | awk '{print $1}')
-        ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
+        YQ_BSD_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd"
+
+        # 1. Download checksum FIRST (fail early if unavailable)
+        EXPECTED_SHA=$(curl -sL "$YQ_BSD_URL" | grep "^SHA256 (${YQ_BINARY})" | awk -F'= ' '{print $2}')
         if [[ -z "$EXPECTED_SHA" ]]; then
             echo "    WARN: Could not fetch yq checksum — skipping verification"
-        elif [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
-            rm -f "$YQ_BIN"
-            echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
-            echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
-            exit 1
+        fi
+
+        # 2. Download binary
+        curl -sL "$YQ_URL" -o "$YQ_BIN"
+
+        # 3. Verify checksum
+        if [[ -n "$EXPECTED_SHA" ]]; then
+            ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
+            if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+                rm -f "$YQ_BIN"
+                echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
+                echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
+                exit 1
+            fi
         fi
         chmod +x "$YQ_BIN"
         echo "    yq $YQ_VERSION installed (checksum verified) — OK"
