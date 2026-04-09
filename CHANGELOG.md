@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.2] — 2026-04-09
+
+### Changed
+- Display name unified to "Time Clawshine" across skill.json and ClawHub
+- Description rewritten to explain the name and purpose
+
+---
+
 ## [1.2.1] — 2026-04-09
 
 ### Fixed

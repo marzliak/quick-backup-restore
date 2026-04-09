@@ -1,8 +1,8 @@
 {
   "name": "quick-backup-restore",
-  "version": "1.2.1",
-  "displayName": "Quick Backup and Restore (time machine)",
-  "description": "Hourly incremental backup for OpenClaw instances. Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success.",
+  "version": "1.2.2",
+  "displayName": "Time Clawshine",
+  "description": "Time Clawshine is a simple but powerful time machine for OpenClaw — hourly encrypted snapshots of your agent's brain (memory, sessions, config) so you can roll back to exactly 2 hours ago, not yesterday. Restic-powered, YAML-configured, silent on success, Telegram-notified on failure.",
   "emoji": "⏱",
   "author": {
     "name": "Leandro Marz",
