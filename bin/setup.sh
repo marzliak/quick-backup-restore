@@ -11,8 +11,12 @@ source "$TC_ROOT/lib.sh"
 
 # Flags
 SKIP_BACKUP=false
+NO_SYSTEM=false
+ASSUME_YES=false
 for arg in "$@"; do
     [[ "$arg" == "--skip-backup" ]] && SKIP_BACKUP=true
+    [[ "$arg" == "--no-system-install" ]] && NO_SYSTEM=true
+    [[ "$arg" == "--assume-yes" || "$arg" == "-y" ]] && ASSUME_YES=true
 done
 
 # Must run as root
@@ -24,44 +28,69 @@ echo "╚═══════════════════════�
 echo ""
 
 # --- Install dependencies ---------------------------------------------------
-echo "==> Installing dependencies..."
-
-install_pkg() {
-    local pkg="$1"
-    if ! command -v "$pkg" &>/dev/null; then
-        echo "    Installing $pkg..."
-        apt-get install -qq -y "$pkg"
-    else
-        echo "    $pkg already installed — OK"
-    fi
-}
-
-apt-get update -qq
-
-install_pkg restic
-install_pkg curl
-install_pkg jq
-
-# yq — install from GitHub if not present (apt version often outdated)
-if ! command -v yq &>/dev/null; then
-    echo "    Installing yq..."
-    YQ_VERSION="v4.44.1"
-    YQ_BIN="/usr/local/bin/yq"
-    YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
-    YQ_CHECKSUM_URL="${YQ_URL}.sha256"
-    curl -sL "$YQ_URL" -o "$YQ_BIN"
-    EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUM_URL" | awk '{print $1}')
-    ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
-    if [[ -n "$EXPECTED_SHA" && "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
-        rm -f "$YQ_BIN"
-        echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
-        echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
-        exit 1
-    fi
-    chmod +x "$YQ_BIN"
-    echo "    yq $YQ_VERSION installed (checksum verified) — OK"
+if [[ "$NO_SYSTEM" == "true" ]]; then
+    echo "==> --no-system-install: skipping dependency installation"
+    tc_check_deps || { echo "ERROR: Dependencies missing. Install manually or run without --no-system-install"; exit 1; }
 else
-    echo "    yq already installed — OK"
+    echo "==> Checking dependencies..."
+
+    # Build list of missing packages
+    MISSING_PKGS=()
+    for pkg in restic curl jq; do
+        command -v "$pkg" &>/dev/null || MISSING_PKGS+=("$pkg")
+    done
+    if ! command -v yq &>/dev/null; then
+        MISSING_PKGS+=("yq (from GitHub)")
+    fi
+
+    if [[ ${#MISSING_PKGS[@]} -gt 0 ]]; then
+        echo "==> The following dependencies will be installed:"
+        for p in "${MISSING_PKGS[@]}"; do echo "    - $p"; done
+        if [[ "$ASSUME_YES" != "true" ]]; then
+            read -rp "Proceed? [y/N]: " CONFIRM_DEPS
+            [[ "$CONFIRM_DEPS" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+        fi
+    else
+        echo "    All dependencies already installed — OK"
+    fi
+
+    install_pkg() {
+        local pkg="$1"
+        if ! command -v "$pkg" &>/dev/null; then
+            echo "    Installing $pkg..."
+            apt-get install -qq -y "$pkg"
+        else
+            echo "    $pkg already installed — OK"
+        fi
+    }
+
+    apt-get update -qq
+
+    install_pkg restic
+    install_pkg curl
+    install_pkg jq
+
+    # yq — install from GitHub if not present (apt version often outdated)
+    if ! command -v yq &>/dev/null; then
+        echo "    Installing yq..."
+        YQ_VERSION="v4.44.1"
+        YQ_BIN="/usr/local/bin/yq"
+        YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+        YQ_CHECKSUM_URL="${YQ_URL}.sha256"
+        curl -sL "$YQ_URL" -o "$YQ_BIN"
+        EXPECTED_SHA=$(curl -sL "$YQ_CHECKSUM_URL" | awk '{print $1}')
+        ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
+        if [[ -n "$EXPECTED_SHA" && "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+            rm -f "$YQ_BIN"
+            echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
+            echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
+            exit 1
+        fi
+        chmod +x "$YQ_BIN"
+        echo "    yq $YQ_VERSION installed (checksum verified) — OK"
+    else
+        echo "    yq already installed — OK"
+    fi
 fi
 
 # --- Load config (after deps are ready) ------------------------------------
@@ -109,29 +138,35 @@ else
 fi
 
 # --- Install backup script to bin ------------------------------------------
-echo ""
-echo "==> Installing backup script to /usr/local/bin/quick-backup-restore..."
-cp "$TC_ROOT/bin/backup.sh" /usr/local/bin/quick-backup-restore
-# Inject TC_ROOT so the installed script knows where to find config
-sed -i "s|^TC_ROOT=.*|TC_ROOT=\"$TC_ROOT\"|" /usr/local/bin/quick-backup-restore
-chmod 755 /usr/local/bin/quick-backup-restore
+if [[ "$NO_SYSTEM" == "true" ]]; then
+    echo ""
+    echo "==> --no-system-install: skipping binary install, cron, and config permissions"
+    CRON_FILE="N/A (--no-system-install)"
+else
+    echo ""
+    echo "==> Installing backup script to /usr/local/bin/quick-backup-restore..."
+    cp "$TC_ROOT/bin/backup.sh" /usr/local/bin/quick-backup-restore
+    # Inject TC_ROOT so the installed script knows where to find config
+    sed -i "s|^TC_ROOT=.*|TC_ROOT=\"$TC_ROOT\"|" /usr/local/bin/quick-backup-restore
+    chmod 755 /usr/local/bin/quick-backup-restore
 
-# --- Register cron ---------------------------------------------------------
-echo ""
-echo "==> Registering cron job: [$CRON_EXPR]"
-CRON_FILE="/etc/cron.d/quick-backup-restore"
-cat > "$CRON_FILE" <<EOF
+    # --- Register cron ---------------------------------------------------------
+    echo ""
+    echo "==> Registering cron job: [$CRON_EXPR]"
+    CRON_FILE="/etc/cron.d/quick-backup-restore"
+    cat > "$CRON_FILE" <<EOF
 # Quick Backup and Restore (time machine) — hourly backup
 # Generated by setup.sh on $(date)
 # Edit schedule in config.yaml, then re-run setup.sh
 $CRON_EXPR root TC_CONFIG=$CONFIG_FILE /usr/local/bin/quick-backup-restore >/dev/null 2>> $LOG_FILE
 EOF
-chmod 644 "$CRON_FILE"
-echo "    Cron registered at: $CRON_FILE"
+    chmod 644 "$CRON_FILE"
+    echo "    Cron registered at: $CRON_FILE"
 
-# --- Restrict config.yaml permissions (may contain Telegram token) ----------
-chmod 600 "$CONFIG_FILE"
-echo "    config.yaml permissions set to 600"
+    # --- Restrict config.yaml permissions (may contain Telegram token) ----------
+    chmod 600 "$CONFIG_FILE"
+    echo "    config.yaml permissions set to 600"
+fi
 
 # --- Run initial backup to validate ----------------------------------------
 if [[ "$SKIP_BACKUP" == "true" ]]; then

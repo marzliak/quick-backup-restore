@@ -30,6 +30,14 @@ Quick Backup and Restore protects OpenClaw's runtime context (memory, sessions, 
    ```bash
    sudo bash {baseDir}/bin/setup.sh
    ```
+   For repo-only setup (no apt-get, no cron, no /usr/local/bin changes):
+   ```bash
+   sudo bash {baseDir}/bin/setup.sh --no-system-install
+   ```
+   For CI/automated setup (skip confirmation prompts):
+   ```bash
+   sudo bash {baseDir}/bin/setup.sh --assume-yes
+   ```
 3. Confirm setup succeeded by tailing the log:
    ```bash
    tail -5 /var/log/quick-backup-restore.log
@@ -107,6 +115,21 @@ Edit `{baseDir}/config.yaml` with the requested changes (schedule, retention, pa
 ```bash
 sudo bash {baseDir}/bin/setup.sh
 ```
+
+---
+
+## When the user asks to customize backup paths
+
+Run the local path analyzer (100% offline — no API calls, no data leaves the machine):
+```bash
+sudo bash {baseDir}/bin/customize.sh
+```
+
+This scans the system for:
+- Extra paths worth backing up (e.g. `~/.ssh`, `~/.config`, custom scripts)
+- Common junk patterns to exclude (e.g. `node_modules`, `*.log`, `cache/`)
+
+Shows suggestions and asks for confirmation before changing `config.yaml`.
 
 ---
 

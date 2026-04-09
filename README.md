@@ -17,7 +17,37 @@ nano config.yaml          # optional: add Telegram bot_token + chat_id for failu
 sudo bin/setup.sh         # installs deps, initializes repo, registers cron
 ```
 
+Or, repo-only setup (no apt-get, no cron, no /usr/local/bin changes):
+
+```bash
+sudo bin/setup.sh --no-system-install
+```
+
 Done. Backups run every hour at :05.
+
+---
+
+## Flags
+
+| Flag | Script | Description |
+|------|--------|-------------|
+| `--skip-backup` | `setup.sh` | Skip the initial validation backup after setup |
+| `--no-system-install` | `setup.sh` | Repo-only setup: creates repo dir, generates password, inits restic. Skips apt-get, cron registration, and binary install to `/usr/local/bin` |
+| `--assume-yes` / `-y` | `setup.sh` | Skip dependency installation confirmation prompt (for CI/automated use) |
+
+---
+
+## Customize paths
+
+```bash
+sudo bin/customize.sh
+```
+
+Scans your system locally (100% offline — no API calls) and suggests:
+- Extra paths worth backing up (e.g. `~/.ssh`, `~/.config`)
+- Junk patterns to exclude (e.g. `node_modules`, `*.log`)
+
+Shows suggestions and asks for confirmation before changing `config.yaml`.
 
 ---
 

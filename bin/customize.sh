@@ -1,8 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# bin/customize.sh — Quick Backup and Restore (time machine) AI-assisted path customization
+# bin/customize.sh — Quick Backup and Restore (time machine) local path customization
 #
-# Analyzes your actual OpenClaw workspace and uses your agent to suggest:
+# Analyzes your system locally (no API calls, no data leaves the machine) to suggest:
 #   - Extra paths worth backing up (whitelist)
 #   - Additional exclusion patterns (blacklist)
 #
@@ -23,107 +23,127 @@ tc_load_config
 # Must run as root
 [[ $EUID -eq 0 ]] || { echo "ERROR: Run as root (sudo bin/customize.sh)"; exit 1; }
 
-# Requires yq (already checked) and openclaw CLI
-if ! command -v openclaw &>/dev/null; then
-    echo ""
-    echo "ERROR: openclaw CLI not found."
-    echo "customize.sh uses your agent to analyze your workspace."
-    echo "If you want to add paths manually, edit config.yaml directly:"
-    echo "  backup.extra_paths  — additional paths to include"
-    echo "  backup.extra_excludes — additional patterns to exclude"
-    exit 1
-fi
-
 echo "╔════════════════════════════════════════════════════════════════════╗"
 echo "║  Quick Backup and Restore (time machine) — Customize Backup Paths  ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "This command will:"
-echo "  1. Scan your OpenClaw workspace"
-echo "  2. Ask your agent to suggest extra paths and exclusions"
-echo "  3. Show you the suggestions"
-echo "  4. Ask for your confirmation before changing anything"
+echo "  1. Analyze your system paths locally"
+echo "  2. Detect extra paths that may be worth backing up"
+echo "  3. Scan for common junk patterns to exclude"
+echo "  4. Show you the suggestions"
+echo "  5. Ask for your confirmation before changing anything"
+echo ""
+echo "  100% local — no data leaves this machine."
 echo ""
 read -rp "Continue? [y/N]: " CONFIRM
 [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
 
-# --- Detect workspace path ---------------------------------------------------
-WORKSPACE_PATH=$(openclaw config get agents.defaults.workspace 2>/dev/null \
-    || echo "/root/.openclaw/workspace")
-
-echo ""
-echo "==> Detected workspace: $WORKSPACE_PATH"
-
-if [[ ! -d "$WORKSPACE_PATH" ]]; then
-    echo "ERROR: Workspace directory not found at $WORKSPACE_PATH"
-    echo "Set the correct path in openclaw.json (agents.defaults.workspace)"
-    exit 1
-fi
-
-# --- Build workspace tree (safe depth, no secrets) ---------------------------
-echo "==> Scanning workspace..."
-WORKSPACE_TREE=$(find "$WORKSPACE_PATH" \
-    -maxdepth 3 \
-    -not -path "*/.git/*" \
-    -not -name "*.env" \
-    -not -name "secrets.*" \
-    -not -name "*.pass" \
-    2>/dev/null | sort | head -200)
-
-# --- Build current paths and excludes as readable lists ----------------------
-CURRENT_PATHS=$(printf '%s\n' "${BACKUP_PATHS[@]}")
-CURRENT_EXCLUDES=$(printf '%s\n' "${EXCLUDES[@]}" | sed 's/--exclude=//')
-
-# --- Helper: fill prompt template --------------------------------------------
-fill_prompt() {
-    local template_file="$1"
-    local template
-    template=$(<"$template_file")
-    template="${template//\{\{WORKSPACE_PATH\}\}/$WORKSPACE_PATH}"
-    template="${template//\{\{CURRENT_PATHS\}\}/$CURRENT_PATHS}"
-    template="${template//\{\{CURRENT_EXCLUDES\}\}/$CURRENT_EXCLUDES}"
-    template="${template//\{\{WORKSPACE_TREE\}\}/$WORKSPACE_TREE}"
-    printf '%s' "$template"
+# --- Helper: check if a path is already covered by BACKUP_PATHS --------------
+_is_covered() {
+    local candidate="$1"
+    for bp in "${BACKUP_PATHS[@]}"; do
+        # Direct match or candidate is under an already-backed-up path
+        [[ "$candidate" == "$bp" ]] && return 0
+        [[ "$candidate" == "$bp"/* ]] && return 0
+        # Already-backed-up path is under candidate (candidate is a parent)
+        [[ "$bp" == "$candidate"/* ]] && return 0
+    done
+    return 1
 }
 
-# --- Run whitelist prompt -----------------------------------------------------
+# --- Whitelist: detect important paths not already covered --------------------
 echo ""
-echo "==> Asking your agent for whitelist suggestions..."
-WHITELIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/whitelist.txt")
-WHITELIST_RAW=$(echo "$WHITELIST_PROMPT" | openclaw agent ask --no-memory - 2>/dev/null || echo "ERROR")
+echo "==> Scanning for extra paths worth backing up..."
 
-if [[ "$WHITELIST_RAW" == "ERROR" ]]; then
-    echo "WARN: Could not reach agent for whitelist. Skipping."
-    WHITELIST_SUGGESTIONS=()
-else
-    mapfile -t WHITELIST_SUGGESTIONS < <(echo "$WHITELIST_RAW" \
-        | grep -v "^NONE$" \
-        | grep -v "^#" \
-        | grep -v "^$" \
-        | grep "^/" \
-        | sort -u)
-fi
+WHITELIST_SUGGESTIONS=()
 
-# --- Run blacklist prompt -----------------------------------------------------
-echo "==> Asking your agent for blacklist suggestions..."
-BLACKLIST_PROMPT=$(fill_prompt "$TC_ROOT/prompts/blacklist.txt")
-BLACKLIST_RAW=$(echo "$BLACKLIST_PROMPT" | openclaw agent ask --no-memory - 2>/dev/null || echo "ERROR")
+# Hardcoded well-known important directories
+CANDIDATE_IMPORTANT=(
+    "$HOME/bin"
+    "$HOME/.config"
+    "$HOME/.ssh"
+    "$HOME/.gnupg"
+    "$HOME/.local/share"
+    "$HOME/.bashrc"
+    "$HOME/.profile"
+    "$HOME/.zshrc"
+)
 
-if [[ "$BLACKLIST_RAW" == "ERROR" ]]; then
-    echo "WARN: Could not reach agent for blacklist. Skipping."
-    BLACKLIST_SUGGESTIONS=()
-else
-    mapfile -t BLACKLIST_SUGGESTIONS < <(echo "$BLACKLIST_RAW" \
-        | grep -v "^NONE$" \
-        | grep -v "^#" \
-        | grep -v "^$" \
-        | sort -u)
-fi
+for candidate in "${CANDIDATE_IMPORTANT[@]}"; do
+    [[ -e "$candidate" ]] || continue
+    _is_covered "$candidate" && continue
+    WHITELIST_SUGGESTIONS+=("$candidate")
+done
+
+# Also scan $HOME depth-1 for directories that might be important
+while IFS= read -r dir; do
+    [[ -d "$dir" ]] || continue
+    # Skip known unimportant dirs
+    dirname=$(basename "$dir")
+    case "$dirname" in
+        .cache|.git|.local|.config|.ssh|.gnupg|.npm|.cargo|.venv|__pycache__|node_modules|.tmp|tmp|.Trash*)
+            continue ;;
+    esac
+    _is_covered "$dir" && continue
+    # Only suggest if it contains files (not empty)
+    if [[ -n "$(find "$dir" -maxdepth 1 -type f 2>/dev/null | head -1)" ]]; then
+        WHITELIST_SUGGESTIONS+=("$dir")
+    fi
+done < <(find "$HOME" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
+
+# --- Blacklist: detect common junk patterns -----------------------------------
+echo "==> Scanning for common exclusion patterns..."
+
+BLACKLIST_SUGGESTIONS=()
+
+# Hardcoded common junk patterns
+JUNK_PATTERNS=(
+    "node_modules"
+    "*.log"
+    "*.cache"
+    ".venv"
+    "*.mp4"
+    "*.mkv"
+    "*.iso"
+    "*.zip"
+    "*.tar.gz"
+    "cache"
+    "tmp"
+    ".npm"
+    ".cargo/registry"
+)
+
+# Current excludes without --exclude= prefix
+CURRENT_EXCLUDES=()
+for ex in "${EXCLUDES[@]}"; do
+    CURRENT_EXCLUDES+=("${ex#--exclude=}")
+done
+
+for pattern in "${JUNK_PATTERNS[@]}"; do
+    # Skip if already in current excludes
+    already=false
+    for ex in "${CURRENT_EXCLUDES[@]}"; do
+        [[ "$ex" == "$pattern" ]] && { already=true; break; }
+    done
+    [[ "$already" == "true" ]] && continue
+
+    # Only suggest if at least one match exists in backup paths
+    found=false
+    for bp in "${BACKUP_PATHS[@]}"; do
+        [[ -d "$bp" ]] || continue
+        if [[ -n "$(find "$bp" -maxdepth 3 -name "$pattern" 2>/dev/null | head -1)" ]]; then
+            found=true
+            break
+        fi
+    done
+    [[ "$found" == "true" ]] && BLACKLIST_SUGGESTIONS+=("$pattern")
+done
 
 # --- Show suggestions --------------------------------------------------------
 echo ""
 echo "┌─────────────────────────────────────────────────────────┐"
-echo "│              Agent Suggestions                          │"
+echo "│              Local Analysis Suggestions                 │"
 echo "├─────────────────────────────────────────────────────────┤"
 
 if [[ ${#WHITELIST_SUGGESTIONS[@]} -eq 0 ]]; then
@@ -151,7 +171,7 @@ echo "└───────────────────────�
 # --- Bail early if nothing to do ---------------------------------------------
 if [[ ${#WHITELIST_SUGGESTIONS[@]} -eq 0 && ${#BLACKLIST_SUGGESTIONS[@]} -eq 0 ]]; then
     echo ""
-    echo "No suggestions from the agent. Your current config.yaml is already optimal."
+    echo "No extra suggestions. Your current config.yaml is already optimal."
     echo "You can always edit backup.extra_paths and backup.extra_excludes manually."
     exit 0
 fi

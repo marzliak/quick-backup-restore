@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-04-09
+
+### Changed
+- `bin/customize.sh`: replaced `openclaw agent ask` with pure bash analysis — no data leaves the machine
+- `bin/setup.sh`: added `--no-system-install` flag for repo-only setup without root modifications
+- `bin/setup.sh`: added dependency install confirmation prompt (override with `--assume-yes` / `-y`)
+
+### Removed
+- Deleted `prompts/whitelist.txt` and `prompts/blacklist.txt` (no longer needed)
+
+### Security
+- Eliminates workspace listing exfiltration risk flagged by ClawHub security scan
+- Users can now set up backup repo without modifying system files
+
+---
+
 ## [1.0.0] — 2026-03-04
 
 Initial release.
