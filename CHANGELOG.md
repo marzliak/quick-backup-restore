@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.2] — 2026-04-09
+
+### Fixed
+- Telegram notifications (`tg_failure`, `tg_digest`) now show "Time Clawshine" instead of legacy "Quick Backup and Restore" name
+
+---
+
 ## [2.0.1] — 2026-04-09
 
 ### Fixed

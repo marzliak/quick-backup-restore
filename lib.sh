@@ -166,7 +166,7 @@ tg_failure() {
     local safe_msg
     safe_msg=$(head -c 800 <<< "$error_msg")
     [[ ${#error_msg} -gt 800 ]] && safe_msg+=$'\n[...truncated]'
-    tg_send "🔴 *Quick Backup and Restore (time machine) — Backup FALHOU*
+    tg_send "🔴 *Time Clawshine — Backup FALHOU*
 🖥 \`$hostname\`
 🕐 $(timestamp)
 
@@ -222,7 +222,7 @@ tg_digest() {
     local repo_size="$2"
     local disk_free="$3"
     local hostname; hostname=$(hostname)
-    tg_send "📊 *Quick Backup and Restore — Resumo diário*
+    tg_send "📊 *Time Clawshine — Resumo diário*
 🖥 \`$hostname\`
 🕐 $(timestamp)
 
