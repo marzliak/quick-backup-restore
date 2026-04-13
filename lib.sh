@@ -59,6 +59,13 @@ tc_load_config() {
     _require_cfg 'retention.keep_last'      "$KEEP_LAST"
     _require_cfg 'logging.file'             "$LOG_FILE"
 
+    # Validate password file exists (skip during setup — file is created later)
+    if [[ ! -f "$PASS_FILE" ]] && [[ "${TC_SKIP_PASS_CHECK:-}" != "true" ]]; then
+        echo "[time-clawshine] ERROR: Password file not found: $PASS_FILE"
+        echo "Without it, no backup or restore is possible."
+        exit 1
+    fi
+
     # Build backup paths array (standard + extra)
     mapfile -t _BASE_PATHS  < <(_cfg_list '.backup.paths[]')
     mapfile -t _EXTRA_PATHS < <(_cfg_list '.backup.extra_paths[]' 2>/dev/null || true)
@@ -196,7 +203,7 @@ tc_validate_paths() {
 
 tc_check_deps() {
     local missing=()
-    for cmd in restic yq curl jq; do
+    for cmd in restic yq curl jq openssl; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     if [[ ${#missing[@]} -gt 0 ]]; then

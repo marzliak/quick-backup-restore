@@ -12,7 +12,7 @@
 # Usage: sudo bin/customize.sh
 # =============================================================================
 
-set -uo pipefail
+set -euo pipefail
 
 TC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 

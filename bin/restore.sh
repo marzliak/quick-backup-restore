@@ -149,7 +149,18 @@ read -rp "Proceed with restore? [y/N]: " CONFIRM
 # --- Real restore -----------------------------------------------------------
 echo ""
 echo "==> Restoring snapshot $SNAPSHOT_ID to $TARGET ..."
-restic_cmd "${RESTORE_ARGS[@]}"
+
+RESTORE_OUTPUT=$(restic_cmd "${RESTORE_ARGS[@]}" 2>&1)
+RESTORE_EXIT=$?
+
+if [[ $RESTORE_EXIT -ne 0 ]]; then
+    echo ""
+    echo "✗ Restore FAILED (exit $RESTORE_EXIT)"
+    echo "$RESTORE_OUTPUT"
+    log_error "Restore failed: snapshot=$SNAPSHOT_ID target=$TARGET exit=$RESTORE_EXIT"
+    tg_failure "Restore failed (exit $RESTORE_EXIT):\nsnapshot=$SNAPSHOT_ID\ntarget=$TARGET\n\n$RESTORE_OUTPUT"
+    exit 1
+fi
 
 echo ""
 echo "✓ Restore complete."

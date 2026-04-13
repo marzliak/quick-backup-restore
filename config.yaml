@@ -3,12 +3,12 @@ repository:
   # Pode ser um path local, S3, SFTP, etc. (qualquer backend suportado pelo restic)
   # Exemplo local: /var/backups/time-clawshine
   # Exemplo S3:    s3:s3.amazonaws.com/meu-bucket/time-clawshine
-  path: /var/backups/quick-backup-restore
+  path: /var/backups/time-clawshine
 
   # Arquivo com a senha de criptografia do repositório restic (AES-256).
   # Criado automaticamente pelo setup.sh com uma senha aleatória de 64 chars.
   # NUNCA commite este arquivo. Faça backup dele separadamente.
-  password_file: /etc/quick-backup-restore.pass
+  password_file: /etc/time-clawshine.pass
 
 retention:
   # Quantos snapshots manter. Com cron a cada hora: 72 = 3 dias.
@@ -75,7 +75,7 @@ updates:
 
 logging:
   # Caminho do arquivo de log. Rotacionado automaticamente pelo setup.sh via logrotate.
-  file: /var/log/quick-backup-restore.log
+  file: /var/log/time-clawshine.log
 
   # verbose: true imprime detalhes de cada arquivo processado pelo restic.
   # Útil para debug. Em produção, mantenha false.

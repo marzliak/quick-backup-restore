@@ -19,11 +19,21 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -qq -y restic jq openssl curl
+          sudo apt-get install -qq -y restic jq openssl curl shellcheck
 
-          # Install yq from GitHub
+          # Install yq from GitHub (with checksum verification)
           YQ_VERSION="v4.44.1"
-          sudo curl -sL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq
+          YQ_BINARY="yq_linux_amd64"
+          YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
+          YQ_BSD_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd"
+
+          EXPECTED_SHA=$(curl -sL "$YQ_BSD_URL" | grep "^SHA256 (${YQ_BINARY})" | awk -F'= ' '{print $2}')
+          sudo curl -sL "$YQ_URL" -o /usr/local/bin/yq
+          ACTUAL_SHA=$(sha256sum /usr/local/bin/yq | awk '{print $1}')
+          if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+            echo "ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
+            exit 1
+          fi
           sudo chmod +x /usr/local/bin/yq
 
       - name: Verify dependencies
@@ -31,6 +41,9 @@ jobs:
           restic version
           jq --version
           yq --version
+
+      - name: Run ShellCheck
+        run: shellcheck -x lib.sh bin/*.sh
 
       - name: Run test suite
         run: bash bin/test.sh

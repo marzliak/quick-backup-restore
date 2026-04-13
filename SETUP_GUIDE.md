@@ -108,7 +108,7 @@ Set `safety.min_disk_mb` accordingly.
 ## Step 6: Repository Location
 
 Ask the user:
-> "Where should I store the backup repository? Default is `/var/backups/quick-backup-restore`."
+> "Where should I store the backup repository? Default is `/var/backups/time-clawshine`."
 > - **Default** (local, fast)
 > - **Custom local path** (e.g. external drive)
 > - *Note: restic also supports S3, SFTP, and other remote backends — see restic docs*

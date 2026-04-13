@@ -31,8 +31,12 @@ source "$TC_ROOT/lib.sh"
 tc_check_deps
 tc_load_config
 
-# Ensure log file exists and is writable
+# Ensure log directory and file exist
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit 1; }
+
+# --- Signal trap — notify on unexpected termination ------------------------
+trap 'log_error "Backup interrupted by signal"; tg_failure "Backup interrupted by signal on $(hostname)"; exit 1' SIGTERM SIGINT
 
 # --- Concurrency lock — skip if another backup is already running -----------
 exec 200>/var/lock/time-clawshine.lock
@@ -82,17 +86,37 @@ fi
 # --- Apply retention policy -------------------------------------------------
 log_info "Applying retention policy (keep-last $KEEP_LAST)..."
 
-FORGET_OUTPUT=$(restic_cmd forget --keep-last "$KEEP_LAST" --prune 2>&1)
+FORGET_OUTPUT=$(restic_cmd forget --keep-last "$KEEP_LAST" 2>&1)
 FORGET_EXIT=$?
 
 if [[ $FORGET_EXIT -ne 0 ]]; then
-    log_error "restic forget/prune failed (exit $FORGET_EXIT)"
+    log_error "restic forget failed (exit $FORGET_EXIT)"
     log_error "$FORGET_OUTPUT"
-    tg_failure "restic forget/prune failed (exit $FORGET_EXIT):\n\n$FORGET_OUTPUT"
+    tg_failure "restic forget failed (exit $FORGET_EXIT):\n\n$FORGET_OUTPUT"
     exit 1
 fi
 
 log_info "Retention OK"
+
+# --- Periodic prune (heavy I/O — run once per day, not every backup) --------
+PRUNE_MARKER="/var/tmp/time-clawshine-prune-date"
+PRUNE_TODAY=$(date '+%Y-%m-%d')
+LAST_PRUNE=""
+[[ -f "$PRUNE_MARKER" ]] && LAST_PRUNE=$(cat "$PRUNE_MARKER" 2>/dev/null || true)
+
+if [[ "$LAST_PRUNE" != "$PRUNE_TODAY" ]]; then
+    log_info "Running daily prune (data repack)..."
+    PRUNE_OUTPUT=$(restic_cmd prune 2>&1)
+    PRUNE_EXIT=$?
+    if [[ $PRUNE_EXIT -ne 0 ]]; then
+        log_error "restic prune failed (exit $PRUNE_EXIT)"
+        log_error "$PRUNE_OUTPUT"
+        tg_failure "restic prune failed (exit $PRUNE_EXIT):\n\n$PRUNE_OUTPUT"
+    else
+        log_info "Prune OK"
+    fi
+    echo "$PRUNE_TODAY" > "$PRUNE_MARKER"
+fi
 
 # --- Integrity check (periodic restic check) --------------------------------
 if [[ "$CHECK_EVERY" -gt 0 ]]; then

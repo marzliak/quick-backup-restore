@@ -42,6 +42,49 @@ echo ""
 # --- Ensure all scripts are executable (git may strip +x on some platforms) --
 chmod +x "$TC_ROOT/bin/"*.sh "$TC_ROOT/lib.sh" 2>/dev/null || true
 
+# --- Detect and migrate v2.x artifacts --------------------------------------
+_migrate_v2() {
+    local v2_artifacts=()
+    [[ -f "/etc/cron.d/quick-backup-restore" ]]        && v2_artifacts+=("/etc/cron.d/quick-backup-restore")
+    [[ -f "/etc/logrotate.d/quick-backup-restore" ]]    && v2_artifacts+=("/etc/logrotate.d/quick-backup-restore")
+    [[ -f "/var/lock/quick-backup-restore.lock" ]]      && v2_artifacts+=("/var/lock/quick-backup-restore.lock")
+    for f in /var/tmp/quick-backup-restore-*; do
+        [[ -e "$f" ]] && v2_artifacts+=("$f")
+    done
+
+    [[ ${#v2_artifacts[@]} -eq 0 ]] && return 0
+
+    echo ""
+    echo "==> Detected v2.x installation artifacts:"
+    for a in "${v2_artifacts[@]}"; do echo "    - $a"; done
+    echo ""
+    echo "    These will be cleaned up. Your repository, password, and snapshots are preserved."
+
+    if [[ "$ASSUME_YES" != "true" ]]; then
+        read -rp "    Proceed with migration? [Y/n]: " CONFIRM_MIG
+        [[ "$CONFIRM_MIG" =~ ^[Nn]$ ]] && { echo "    Skipping migration."; return 0; }
+    fi
+
+    for a in "${v2_artifacts[@]}"; do
+        rm -f "$a" && echo "    Removed: $a"
+    done
+
+    # Rename v2 marker files to v3 equivalents
+    for old_marker in /var/tmp/quick-backup-restore-check-counter \
+                      /var/tmp/quick-backup-restore-digest-date \
+                      /var/tmp/quick-backup-restore-update-date; do
+        if [[ -f "$old_marker" ]]; then
+            new_marker="${old_marker//quick-backup-restore/time-clawshine}"
+            mv "$old_marker" "$new_marker" 2>/dev/null && echo "    Renamed: $old_marker → $new_marker"
+        fi
+    done
+
+    echo "    ✓ v2 migration complete"
+    echo ""
+}
+
+_migrate_v2
+
 # --- Install dependencies ---------------------------------------------------
 if [[ "$NO_SYSTEM" == "true" ]]; then
     echo "==> --no-system-install: skipping dependency installation"
@@ -90,7 +133,12 @@ else
         echo "    Installing yq..."
         YQ_VERSION="v4.44.1"
         YQ_BIN="/usr/local/bin/yq"
-        YQ_BINARY="yq_linux_amd64"
+        case "$(uname -m)" in
+            x86_64)  YQ_BINARY="yq_linux_amd64" ;;
+            aarch64) YQ_BINARY="yq_linux_arm64" ;;
+            armv7l)  YQ_BINARY="yq_linux_arm" ;;
+            *)       echo "    ERROR: Unsupported architecture: $(uname -m)"; exit 1 ;;
+        esac
         YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
         YQ_BSD_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd"
 
@@ -121,6 +169,7 @@ else
 fi
 
 # --- Load config (after deps are ready) ------------------------------------
+export TC_SKIP_PASS_CHECK=true  # password file may not exist yet during setup
 tc_load_config
 
 # --- Create repository directory -------------------------------------------
@@ -145,11 +194,12 @@ else
         chmod 600 "$PASS_FILE"
     fi
     echo ""
-    echo "    ┌─────────────────────────────────────────────────────┐"
+    echo "    ┌──────────────────────────────────────────────────────────┐"
     echo "    │  Password saved to: $PASS_FILE"
-    echo "    │  *** BACK THIS UP — without it, no restore is       │"
-    echo "    │  possible, even if the repo is intact ***           │"
-    echo "    └─────────────────────────────────────────────────────┘"
+    echo "    │                                                          │"
+    echo "    │  *** BACK THIS UP — without it, no restore is possible, │"
+    echo "    │  even if the repo is intact ***                         │"
+    echo "    └──────────────────────────────────────────────────────────┘"
     echo ""
     echo "    To view the password later: sudo cat $PASS_FILE"
 fi

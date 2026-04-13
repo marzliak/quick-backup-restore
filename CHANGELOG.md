@@ -5,14 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [3.0.0] — 2026-04-09
+## [3.0.0] — 2026-04-12
 
 ### Added
 - `bin/uninstall.sh`: clean removal of all system artifacts with `--yes` and `--purge` flags. Sends Telegram notification. Preserves backup data by default
-- `--help` / `-h` flag on all scripts: `backup.sh`, `setup.sh`, `status.sh`, `customize.sh`, `test.sh`, `uninstall.sh` (restore.sh and prune.sh already had it)
-- GitHub Actions CI: runs test suite on `ubuntu-22.04` and `ubuntu-24.04` on every push/PR
-- v2→v3 migration in `setup.sh`: auto-detects legacy v2.x system files, prompts to migrate, cleans old paths
+- `--help` / `-h` flag on all scripts (exits before config load so it works without a valid config)
+- GitHub Actions CI: runs `shellcheck` + test suite on `ubuntu-22.04` and `ubuntu-24.04` with yq checksum verification
+- v2→v3 migration engine `_migrate_v2()` in `setup.sh`: auto-detects legacy v2.x system files (cron, logrotate, lock, markers), prompts to migrate, cleans old and renames markers
 - `SETUP_GUIDE.md`: Step 0 (upgrade from v2) and Step 9 (uninstall) sections
+- Password file existence check in `tc_load_config` — clear error instead of cryptic restic failure
+- Signal trap (`SIGTERM`/`SIGINT`) in `backup.sh` — sends Telegram on unexpected termination
+- `openssl` added to `tc_check_deps` (was required by setup but not validated)
+- ARM64 and ARMv7 support for yq download in `setup.sh` (auto-detects `uname -m`)
 
 ### Changed
 - **BREAKING**: System file paths renamed from `quick-backup-restore` to `time-clawshine`:
@@ -20,12 +24,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `/etc/logrotate.d/quick-backup-restore` → `/etc/logrotate.d/time-clawshine`
   - `/var/lock/quick-backup-restore.lock` → `/var/lock/time-clawshine.lock`
   - `/var/tmp/quick-backup-restore-*` → `/var/tmp/time-clawshine-*`
+- **BREAKING**: Default config paths now use `time-clawshine` name (new installs only; existing configs are preserved)
+- `backup.sh`: split `forget` (every backup) from `prune` (daily) — avoids hourly I/O storms on large repos
+- `restore.sh`: now checks `restic restore` exit code — no longer shows "✓" on failure
+- `customize.sh`: added missing `set -e` — prevents silent config corruption on errors
+- `status.sh`: detects systemd timer (not just cron) and caches `restic snapshots --json` (single call instead of two)
+- `backup.sh`: ensures log directory exists (`mkdir -p`) before first write
+- `setup.sh`: fixed password warning box alignment, yq checksum now uses `checksums-bsd` format
 - All UI headers, log messages, error prefixes, and Telegram notifications now show "Time Clawshine"
-- `setup.sh` rewritten with `--help` flag and `case` argument parsing
 - `SKILL.md` technical reference uses config-based paths instead of hardcoded defaults
 - `README.md` updated with CI badge, uninstall section, expanded flags table
 - Binary path `/usr/local/bin/quick-backup-restore` preserved for backward compatibility
-- Test suite expanded from 14 to ~25 tests (--help checks, uninstall.sh syntax, prune dry-run, permissions)
+- Test suite expanded to 25 tests (--help checks, uninstall.sh syntax, prune dry-run, permissions)
 
 ### Removed
 - `CHANGES-PLAN.md` and `quick-backup-restore-changes.md` (stale planning files)

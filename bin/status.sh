@@ -41,8 +41,9 @@ echo "  Version         : $VERSION"
 echo "  Repository      : $REPO"
 
 if restic_cmd snapshots &>/dev/null; then
-    SNAP_COUNT=$(restic_cmd snapshots --json 2>/dev/null | jq 'length' 2>/dev/null || echo "?")
-    LAST_SNAP=$(restic_cmd snapshots --json 2>/dev/null | jq -r '.[-1].time // "none"' 2>/dev/null | cut -d'.' -f1 | tr 'T' ' ')
+    SNAP_JSON=$(restic_cmd snapshots --json 2>/dev/null || echo "[]")
+    SNAP_COUNT=$(echo "$SNAP_JSON" | jq 'length' 2>/dev/null || echo "?")
+    LAST_SNAP=$(echo "$SNAP_JSON" | jq -r '.[-1].time // "none"' 2>/dev/null | cut -d'.' -f1 | tr 'T' ' ')
     echo "  Snapshots       : $SNAP_COUNT"
     echo "  Last snapshot   : $LAST_SNAP"
 
@@ -76,14 +77,19 @@ else
     echo "  Password file   : $PASS_FILE (NOT FOUND — CRITICAL)"
 fi
 
-# --- Cron -------------------------------------------------------------------
+# --- Scheduler (systemd preferred, cron fallback) --------------------------
 echo ""
 CRON_FILE="/etc/cron.d/time-clawshine"
-if [[ -f "$CRON_FILE" ]]; then
+if command -v systemctl &>/dev/null && systemctl is-active time-clawshine.timer &>/dev/null 2>&1; then
+    TIMER_SCHED=$(systemctl show time-clawshine.timer --property=TimersCalendar 2>/dev/null | head -1 || echo "?")
+    echo "  Scheduler       : systemd timer (active)"
+    echo "  Timer           : $TIMER_SCHED"
+elif [[ -f "$CRON_FILE" ]]; then
+    echo "  Scheduler       : cron"
     echo "  Cron job        : $CRON_FILE"
     echo "  Schedule        : $CRON_EXPR"
 else
-    echo "  Cron job        : not installed (run setup.sh to register)"
+    echo "  Scheduler       : not installed (run setup.sh to register)"
 fi
 
 # --- Integrity check --------------------------------------------------------
