@@ -19,7 +19,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -qq -y restic jq openssl curl shellcheck
+          sudo apt-get install -qq -y restic jq openssl curl
+
+          # shellcheck may be unavailable on some runner images; fallback to binary install
+          if ! sudo apt-get install -qq -y shellcheck; then
+            SHELLCHECK_VERSION="v0.10.0"
+            SHELLCHECK_TAR="shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+            curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/${SHELLCHECK_TAR}" -o /tmp/${SHELLCHECK_TAR}
+            tar -xJf /tmp/${SHELLCHECK_TAR} -C /tmp
+            sudo install -m 755 "/tmp/shellcheck-${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          fi
 
           # Install yq from GitHub (with checksum verification)
           YQ_VERSION="v4.44.1"
@@ -27,8 +36,13 @@ jobs:
           YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
           YQ_BSD_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd"
 
-          EXPECTED_SHA=$(curl -sL "$YQ_BSD_URL" | grep "^SHA256 (${YQ_BINARY})" | awk -F'= ' '{print $2}')
-          sudo curl -sL "$YQ_URL" -o /usr/local/bin/yq
+          EXPECTED_SHA=$(curl -fsSL "$YQ_BSD_URL" | awk -v b="$YQ_BINARY" '$1=="SHA256" && $2=="(" b ")" {print $4; exit}')
+          if [[ -z "$EXPECTED_SHA" ]]; then
+            echo "ERROR: Could not parse expected SHA256 for ${YQ_BINARY}"
+            exit 1
+          fi
+
+          sudo curl -fsSL "$YQ_URL" -o /usr/local/bin/yq
           ACTUAL_SHA=$(sha256sum /usr/local/bin/yq | awk '{print $1}')
           if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
             echo "ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
