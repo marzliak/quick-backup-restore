@@ -82,8 +82,7 @@ fi
 
 # --- Validate config loads without error ------------------------------------
 _test "Config loads and validates"
-CONFIG_OUTPUT=$(bash -c "export TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config" 2>&1)
-if [[ $? -eq 0 ]]; then
+if CONFIG_OUTPUT=$(bash -c "export TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config" 2>&1); then
     _ok
 else
     _fail "$CONFIG_OUTPUT"
