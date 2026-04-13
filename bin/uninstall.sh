@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "What gets removed by default:"
             echo "  - Systemd timer + service (time-clawshine.timer/service)"
-            echo "  - Installed binary (/usr/local/bin/quick-backup-restore)"
+            echo "  - Installed binary (/usr/local/bin/time-clawshine + symlink)"
             echo "  - Cron job (/etc/cron.d/time-clawshine)"
             echo "  - Logrotate config (/etc/logrotate.d/time-clawshine)"
             echo "  - Lock and marker files (/var/lock/, /var/tmp/)"
@@ -68,8 +68,10 @@ if systemctl is-active time-clawshine.timer &>/dev/null 2>&1 || [[ -f "/etc/syst
     REMOVABLE+=("systemd")
 fi
 
-# Binary
-[[ -f "/usr/local/bin/quick-backup-restore" ]] && echo "    - Binary:           /usr/local/bin/quick-backup-restore" && REMOVABLE+=("binary")
+# Binary (v3 name + v2 backward-compat symlink)
+for bin_file in "/usr/local/bin/time-clawshine" "/usr/local/bin/quick-backup-restore"; do
+    [[ -f "$bin_file" || -L "$bin_file" ]] && echo "    - Binary:           $bin_file" && REMOVABLE+=("binary:$bin_file")
+done
 
 # Cron (v3 or legacy v2)
 for cron_file in "/etc/cron.d/time-clawshine" "/etc/cron.d/quick-backup-restore"; do
@@ -141,10 +143,12 @@ if [[ " ${REMOVABLE[*]} " == *" systemd "* ]]; then
 fi
 
 # --- Remove binary -----------------------------------------------------------
-if [[ " ${REMOVABLE[*]} " == *" binary "* ]]; then
-    rm -f /usr/local/bin/quick-backup-restore
-    echo "    ✓ Binary removed"
-fi
+for item in "${REMOVABLE[@]}"; do
+    if [[ "$item" == binary:* ]]; then
+        rm -f "${item#binary:}"
+        echo "    ✓ Binary removed: ${item#binary:}"
+    fi
+done
 
 # --- Remove cron -------------------------------------------------------------
 for item in "${REMOVABLE[@]}"; do
