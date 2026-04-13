@@ -197,8 +197,9 @@ _section "5. Prune & Retention"
 _test "prune.sh --dry-run succeeds"
 # Unlock repo in case previous backup left a stale lock
 RESTIC_PASSWORD_FILE="$PASS_FILE" restic -r "$REPO_PATH" unlock --remove-all 2>/dev/null || true
-bash "$TC_ROOT/bin/prune.sh" --dry-run > /dev/null 2>&1
-PRUNE_RC=$?
+# Run in subshell to avoid SIGPIPE (141) when discarding output from a pipefail script
+PRUNE_RC=0
+(bash "$TC_ROOT/bin/prune.sh" --dry-run) > /dev/null 2>&1 || PRUNE_RC=$?
 if [[ $PRUNE_RC -eq 0 ]]; then _ok; else _fail "exit code $PRUNE_RC"; fi
 
 KEEP_LAST=$(_cfg '.retention.keep_last')
