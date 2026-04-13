@@ -104,7 +104,9 @@ _resolve_time_snapshot() {
     local best_id="" best_diff=999999999
     while IFS=$'\t' read -r sid stime; do
         local sts
-        sts=$(date -d "$stime" '+%s' 2>/dev/null || date -j -f '%Y-%m-%dT%H:%M:%S' "$stime" '+%s' 2>/dev/null || continue)
+        if ! sts=$(date -d "$stime" '+%s' 2>/dev/null); then
+            sts=$(date -j -f '%Y-%m-%dT%H:%M:%S' "$stime" '+%s' 2>/dev/null) || continue
+        fi
         local diff=$(( sts - target_ts ))
         [[ $diff -lt 0 ]] && diff=$(( -diff ))
         if [[ $diff -lt $best_diff ]]; then

@@ -28,6 +28,7 @@ tc_load_config() {
     PASS_FILE=$(_cfg '.repository.password_file')
     KEEP_LAST=$(_cfg '.retention.keep_last')
     LOG_FILE=$(_cfg '.logging.file')
+    # shellcheck disable=SC2034  # Used by scripts sourcing lib.sh (e.g. backup.sh)
     VERBOSE=$(_cfg '.logging.verbose')
     CRON_EXPR=$(_cfg '.schedule.cron')
 
