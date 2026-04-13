@@ -277,4 +277,16 @@ Auto-installed by `setup.sh`: `restic`, `yq` v4, `curl`, `jq`.
 
 ## License
 
-MIT
+MIT — see [LICENSE.txt](LICENSE.txt)
+
+---
+
+## Author
+
+**Leandro Marz** ([@marzliak](https://github.com/marzliak))
+
+## Links
+
+- **Repository:** [github.com/marzliak/quick-backup-restore](https://github.com/marzliak/quick-backup-restore)
+- **ClawHub:** [quick-backup-restore](https://clawhub.com/skills/quick-backup-restore)
+- **Issues:** [github.com/marzliak/quick-backup-restore/issues](https://github.com/marzliak/quick-backup-restore/issues)
