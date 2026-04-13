@@ -31,10 +31,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `status.sh`: detects systemd timer (not just cron) and caches `restic snapshots --json` (single call instead of two)
 - `backup.sh`: ensures log directory exists (`mkdir -p`) before first write
 - `setup.sh`: fixed password warning box alignment, yq checksum now uses `checksums-bsd` format
+- `setup.sh`: binary now installs as `/usr/local/bin/time-clawshine` with backward-compat symlink
+- `prune.sh`: fixed SIGPIPE (exit 141) when capturing large restic output with `set -euo pipefail` — now uses temp files
 - All UI headers, log messages, error prefixes, and Telegram notifications now show "Time Clawshine"
 - `SKILL.md` technical reference uses config-based paths instead of hardcoded defaults
 - `README.md` updated with CI badge, uninstall section, expanded flags table
-- Binary path `/usr/local/bin/quick-backup-restore` preserved for backward compatibility
+- Binary symlink `/usr/local/bin/quick-backup-restore` → `time-clawshine` preserved for backward compatibility
 - Test suite expanded to 25 tests (--help checks, uninstall.sh syntax, prune dry-run, permissions)
 
 ### Removed
