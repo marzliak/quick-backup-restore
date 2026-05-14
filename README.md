@@ -4,7 +4,7 @@
 
 **Hourly incremental backup for OpenClaw instances.**
 
-Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success — only pings you when something breaks.
+Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success — only pings you when something breaks. Optional healthcheck.io / hc-style ping so you also notice when the backup *stops* running, not just when it explicitly fails.
 
 **Platform:** Linux only (bash scripts). macOS works with Homebrew restic but is untested. Windows not supported.
 
@@ -243,9 +243,32 @@ notifications:
     chat_id: ""          # from @userinfobot
     daily_digest: false  # daily summary via Telegram
 
+  healthcheck:           # external uptime monitoring (healthchecks.io / hc-style)
+    enabled: false
+    url: ""              # e.g. https://hc-ping.com/<uuid> or self-hosted hc
+    ping_start: true     # GET <url>/start at backup start (to measure duration)
+
 updates:
   check: true   # daily version check against ClawHub
 ```
+
+### About the `healthcheck` block
+
+Telegram alerts only fire when the backup **runs and fails**. If the scheduler
+itself breaks (cron/systemd misconfigured, timer disabled by an upgrade,
+container restart), Telegram stays silent and you only find out when you
+need a restore. The `healthcheck` block pings an external uptime endpoint:
+
+| Event | Endpoint hit |
+|-------|--------------|
+| Backup starts (if `ping_start: true`) | `<url>/start` |
+| Backup succeeds | `<url>` |
+| Backup fails (any of: paths missing, disk low, restic backup/forget/prune/check) | `<url>/fail` |
+
+Point `url` at a [healthchecks.io](https://healthchecks.io) check (or a
+self-hosted instance) configured to expect a ping every hour. If two
+consecutive pings are missed, the service alerts you. Pings have a 10s
+timeout and 2 retries; a ping failure is logged but never aborts the backup.
 
 ---
 

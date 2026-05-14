@@ -39,6 +39,32 @@ notifications:
 
 ---
 
+## Step 1b: External Healthcheck (recommended for production)
+
+Ask the user:
+> "Telegram only pings you when a backup *runs and fails*. If the scheduler
+> itself breaks (cron disabled, systemd timer not loaded, container
+> restart), Telegram stays quiet. Want to add a healthcheck.io / hc ping
+> so you get alerted when backups *stop running*?"
+
+**If yes:**
+1. Ask for the **healthcheck URL** (e.g. `https://hc-ping.com/<uuid>` from
+   healthchecks.io, or a self-hosted instance like `https://hc.example.com/ping/<uuid>`).
+2. Configure the check at the provider to expect a ping every hour
+   (matching `schedule.cron`) plus some grace.
+3. Set in `config.yaml`:
+```yaml
+notifications:
+  healthcheck:
+    enabled: true
+    url: "<their healthcheck url>"
+    ping_start: true   # adds /start ping so duration is tracked
+```
+
+**If no:** leave defaults (enabled: false). No pings will be sent.
+
+---
+
 ## Step 2: Backup Frequency
 
 Ask the user:
