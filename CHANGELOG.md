@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.1] — 2026-05-14
+
+### Security
+- Redact a real-looking chat_id (a 10-digit number that was the
+  maintainer's own Telegram chat_id) from the `config.yaml` example
+  comment. Replaced with the obviously-placeholder `123456789`. No
+  behavior change — the comment was always documentation, never read
+  by the script.
+
+---
+
 ## [3.1.0] — 2026-05-14
 
 ### Added
