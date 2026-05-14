@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.2] — 2026-05-14
+
+### Changed
+- Display name on ClawHub: `Quick Backup Restore` (slug auto-title) →
+  `OpenClaw Time Machine (restic quick backup and restore)`. Internal
+  brand name (`⏱🦞 Time Clawshine`) is kept in SKILL.md and the log.
+
+---
+
 ## [3.1.1] — 2026-05-14
 
 ### Security
