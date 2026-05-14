@@ -37,6 +37,10 @@ tc_load_config() {
     TG_CHAT_ID=$(_cfg '.notifications.telegram.chat_id')
     TG_DAILY_DIGEST=$(_cfg '.notifications.telegram.daily_digest')
 
+    HC_ENABLED=$(_cfg '.notifications.healthcheck.enabled')
+    HC_URL=$(_cfg '.notifications.healthcheck.url')
+    HC_PING_START=$(_cfg '.notifications.healthcheck.ping_start')
+
     CHECK_EVERY=$(_cfg '.integrity.check_every')
     MIN_DISK_MB=$(_cfg '.safety.min_disk_mb')
     UPDATE_CHECK=$(_cfg '.updates.check')
@@ -46,6 +50,9 @@ tc_load_config() {
     [[ -z "$MIN_DISK_MB"    || "$MIN_DISK_MB"    == "null" ]] && MIN_DISK_MB=0
     [[ -z "$TG_DAILY_DIGEST" || "$TG_DAILY_DIGEST" == "null" ]] && TG_DAILY_DIGEST=false
     [[ -z "$UPDATE_CHECK"   || "$UPDATE_CHECK"   == "null" ]] && UPDATE_CHECK=true
+    [[ -z "$HC_ENABLED"     || "$HC_ENABLED"     == "null" ]] && HC_ENABLED=false
+    [[ -z "$HC_URL"         || "$HC_URL"         == "null" ]] && HC_URL=""
+    [[ -z "$HC_PING_START"  || "$HC_PING_START"  == "null" ]] && HC_PING_START=true
 
     # Validate critical config values
     _require_cfg() {
@@ -128,6 +135,12 @@ tc_validate_config() {
             errors+=("notifications.telegram.chat_id is required when enabled: true")
     fi
 
+    # healthcheck: if enabled, url must be set
+    if [[ "$HC_ENABLED" == "true" ]]; then
+        [[ -z "$HC_URL" || "$HC_URL" == "null" ]] && \
+            errors+=("notifications.healthcheck.url is required when enabled: true")
+    fi
+
     if [[ ${#errors[@]} -gt 0 ]]; then
         echo "[time-clawshine] CONFIG VALIDATION ERRORS:"
         for e in "${errors[@]}"; do echo "  ✗ $e"; done
@@ -181,6 +194,30 @@ tg_failure() {
 \`\`\`
 $safe_msg
 \`\`\`"
+}
+
+# --- Healthcheck (healthchecks.io / hc-style endpoints) ---------------------
+# Pings <url>[/state] with a short timeout. Non-blocking — failures are logged
+# but never abort the backup.
+# Usage: hc_send                 → success ping (URL as-is)
+#        hc_send /start          → mark backup started
+#        hc_send /fail [msg]     → mark backup failed (optional body)
+hc_send() {
+    [[ "$HC_ENABLED" != "true" ]]   && return 0
+    [[ -z "$HC_URL" ]]              && return 0
+    [[ "$HC_URL" == "null" ]]       && return 0
+
+    local state="${1:-}"
+    local body="${2:-}"
+    local url="${HC_URL%/}${state}"
+
+    if [[ -n "$body" ]]; then
+        curl -fsS -m 10 --retry 2 --data-raw "$body" "$url" >/dev/null 2>&1 \
+            || log_warn "Healthcheck ping failed: $url"
+    else
+        curl -fsS -m 10 --retry 2 "$url" >/dev/null 2>&1 \
+            || log_warn "Healthcheck ping failed: $url"
+    fi
 }
 
 # --- Restic wrapper ----------------------------------------------------------

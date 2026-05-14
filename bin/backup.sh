@@ -36,7 +36,7 @@ mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit 1; }
 
 # --- Signal trap — notify on unexpected termination ------------------------
-trap 'log_error "Backup interrupted by signal"; tg_failure "Backup interrupted by signal on $(hostname)"; exit 1' SIGTERM SIGINT
+trap 'log_error "Backup interrupted by signal"; tg_failure "Backup interrupted by signal on $(hostname)"; hc_send /fail "Backup interrupted by signal"; exit 1' SIGTERM SIGINT
 
 # --- Concurrency lock — skip if another backup is already running -----------
 exec 200>/var/lock/time-clawshine.lock
@@ -45,11 +45,20 @@ flock -n 200 || { log_warn "Another backup is already running — skipping"; exi
 
 log_info "--- Time Clawshine started ---"
 
+# --- Healthcheck: signal start (so external monitor can measure duration) --
+[[ "$HC_PING_START" == "true" ]] && hc_send /start
+
 # --- Disk space guard -------------------------------------------------------
-tc_check_disk "$MIN_DISK_MB" || exit 1
+if ! tc_check_disk "$MIN_DISK_MB"; then
+    hc_send /fail "Disk space too low"
+    exit 1
+fi
 
 # --- Validate backup paths --------------------------------------------------
-tc_validate_paths || exit 1
+if ! tc_validate_paths; then
+    hc_send /fail "Backup paths missing"
+    exit 1
+fi
 
 # --- Run backup -------------------------------------------------------------
 RESTIC_ARGS=(backup "${BACKUP_PATHS[@]}" "${EXCLUDES[@]}")
@@ -63,6 +72,7 @@ if [[ $BACKUP_EXIT -ne 0 ]]; then
     log_error "restic backup failed (exit $BACKUP_EXIT)"
     log_error "$BACKUP_OUTPUT"
     tg_failure "restic backup failed (exit $BACKUP_EXIT):\n\n$BACKUP_OUTPUT"
+    hc_send /fail "restic backup failed (exit $BACKUP_EXIT)"
     exit 1
 fi
 
@@ -84,15 +94,19 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 # --- Apply retention policy -------------------------------------------------
-log_info "Applying retention policy (keep-last $KEEP_LAST)..."
+# --group-by host: retention is global per host (not per path-set). Without
+# this, if backup paths ever change, restic creates a new "group" and keeps
+# $KEEP_LAST in EACH group — doubling the snapshot count silently.
+log_info "Applying retention policy (keep-last $KEEP_LAST, group-by host)..."
 
-FORGET_OUTPUT=$(restic_cmd forget --keep-last "$KEEP_LAST" 2>&1)
+FORGET_OUTPUT=$(restic_cmd forget --keep-last "$KEEP_LAST" --group-by host 2>&1)
 FORGET_EXIT=$?
 
 if [[ $FORGET_EXIT -ne 0 ]]; then
     log_error "restic forget failed (exit $FORGET_EXIT)"
     log_error "$FORGET_OUTPUT"
     tg_failure "restic forget failed (exit $FORGET_EXIT):\n\n$FORGET_OUTPUT"
+    hc_send /fail "restic forget failed (exit $FORGET_EXIT)"
     exit 1
 fi
 
@@ -112,6 +126,7 @@ if [[ "$LAST_PRUNE" != "$PRUNE_TODAY" ]]; then
         log_error "restic prune failed (exit $PRUNE_EXIT)"
         log_error "$PRUNE_OUTPUT"
         tg_failure "restic prune failed (exit $PRUNE_EXIT):\n\n$PRUNE_OUTPUT"
+        hc_send /fail "restic prune failed (exit $PRUNE_EXIT)"
     else
         log_info "Prune OK"
     fi
@@ -133,6 +148,7 @@ if [[ "$CHECK_EVERY" -gt 0 ]]; then
             log_error "restic check failed (exit $CHECK_EXIT)"
             log_error "$CHECK_OUTPUT"
             tg_failure "restic check failed (exit $CHECK_EXIT):\n\n$CHECK_OUTPUT"
+            hc_send /fail "restic check failed (exit $CHECK_EXIT)"
         else
             log_info "Integrity check OK"
         fi
@@ -178,5 +194,8 @@ if [[ "$UPDATE_CHECK" == "true" ]]; then
         echo "$TODAY" > "$UPDATE_MARKER"
     fi
 fi
+
+# --- Healthcheck: signal successful completion -----------------------------
+hc_send
 
 log_info "--- Time Clawshine finished ---"

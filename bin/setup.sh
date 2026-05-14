@@ -259,8 +259,12 @@ After=network.target
 Type=oneshot
 Environment=TC_CONFIG=$CONFIG_FILE
 ExecStart=/usr/local/bin/time-clawshine
-StandardOutput=append:$LOG_FILE
-StandardError=append:$LOG_FILE
+# StandardOutput=journal (NOT append:LOG_FILE) — log() already writes to
+# LOG_FILE via tee(1). Capturing stdout to the same file too would duplicate
+# every line. Errors/unexpected stderr still land in the journal:
+#   journalctl -u time-clawshine.service
+StandardOutput=journal
+StandardError=journal
 EOF
 
         cat > "$UNIT_DIR/time-clawshine.timer" <<EOF

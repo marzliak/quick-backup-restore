@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.0] — 2026-05-14
+
+### Added
+- **Healthcheck.io / hc-style ping support** (`notifications.healthcheck`). Pings
+  `<url>/start` at backup start, `<url>` on success, `<url>/fail` on any failure.
+  Compatible with healthchecks.io and self-hosted hc instances. Disabled by
+  default; opt-in via `enabled: true` + `url: "<your-uuid-url>"`.
+- `hc_send()` helper in `lib.sh` — short timeout (10s), 2 retries, non-blocking
+  (a ping failure logs a warning but never aborts the backup).
+- Config validation: `notifications.healthcheck.url` is required when
+  `healthcheck.enabled: true`.
+
+### Fixed
+- **Log lines duplicated 2×.** Systemd unit captured stdout via
+  `StandardOutput=append:LOG_FILE` while `log()` also writes to `LOG_FILE`
+  through `tee(1)`. Setup now writes `StandardOutput=journal` —
+  `tee` keeps writing to the log file once, and systemd captures any
+  unexpected stderr/stdout to the journal (`journalctl -u time-clawshine`).
+- **Retention policy double-counted snapshots after a paths change.**
+  `restic forget --keep-last N` groups by `(host, paths)` by default. If the
+  list of backup paths ever changed, two groups existed and each kept N
+  snapshots — silently retaining 2N. Now uses `--group-by host` so retention
+  is global per host. Existing repos with stale path-set groups are pruned
+  automatically on the next backup.
+
+---
+
 ## [3.0.0] — 2026-04-12
 
 ### Added

@@ -68,6 +68,23 @@ notifications:
     # Requer enabled: true, bot_token e chat_id configurados.
     daily_digest: false
 
+  # Healthcheck.io / hc-style endpoint para monitoramento externo.
+  # Útil para detectar quando o backup PARA de rodar (Telegram só notifica em
+  # falha — se o cron quebrar, ninguém sabe).
+  # Compatível com healthchecks.io e qualquer endpoint que aceite GET <url>,
+  # GET <url>/start e GET <url>/fail.
+  healthcheck:
+    enabled: false
+
+    # URL completa do check. Exemplo:
+    #   https://hc.marzops.cloud/ping/<uuid>
+    #   https://hc-ping.com/<uuid>
+    url: ""
+
+    # Enviar ping em <url>/start no início do backup (permite medir duração).
+    # Default: true.
+    ping_start: true
+
 updates:
   # Verificar se há uma versão mais recente no ClawHub (uma vez por dia, non-blocking).
   # Se encontrada, registra no log — nunca atualiza automaticamente.
