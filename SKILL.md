@@ -35,6 +35,7 @@ sudo bash {baseDir}/bin/setup.sh
 - **Disk guard** — aborts before filling your disk, alerts via Telegram
 - **Integrity checks** — automatic `restic check` every 24 backups
 - **Daily digest** — Telegram summary with snapshot count, repo size, disk free
+- **Healthcheck ping** — opt-in healthchecks.io / hc-style endpoint pings (`/start`, `/`, `/fail`) so you also know when the backup *stops running*, not just when it fails
 - **Update awareness** — checks ClawHub daily, never auto-updates
 - **Status dashboard** — `bin/status.sh` for a full health check at a glance
 - **Repository cleanup** — `bin/prune.sh` to manually reclaim disk space
