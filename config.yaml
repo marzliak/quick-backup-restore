@@ -61,7 +61,7 @@ notifications:
 
     # ID do chat ou usuário que receberá as notificações.
     # Para obter o seu: envie /start para @userinfobot no Telegram.
-    # Exemplo: 5472904791
+    # Exemplo: 123456789
     chat_id: ""
 
     # Enviar resumo diário com estatísticas de backup (primeiro backup após meia-noite).
