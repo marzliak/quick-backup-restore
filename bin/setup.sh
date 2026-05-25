@@ -242,8 +242,18 @@ else
     ln -sf /usr/local/bin/time-clawshine /usr/local/bin/quick-backup-restore
 
     # --- Register scheduler (systemd preferred, cron fallback) ------------------
+    # Detect systemd as PID 1. 'systemctl is-system-running' returns non-zero
+    # for 'degraded' state (any unrelated unit failed), which used to send us
+    # down the cron fallback path on otherwise-healthy hosts and could end up
+    # leaving BOTH cron and a pre-existing timer firing. /run/systemd/system
+    # is the canonical "systemd is the init system" check.
+    HAVE_SYSTEMD=false
+    if [[ -d /run/systemd/system ]] && command -v systemctl &>/dev/null; then
+        HAVE_SYSTEMD=true
+    fi
+
     echo ""
-    if command -v systemctl &>/dev/null && systemctl is-system-running &>/dev/null 2>&1; then
+    if [[ "$HAVE_SYSTEMD" == "true" ]]; then
         echo "==> Registering systemd timer..."
 
         # Convert cron expression to systemd OnCalendar (best-effort for hourly)
@@ -303,6 +313,22 @@ EOF
         done
     else
         echo "==> Registering cron job: [$CRON_EXPR]"
+
+        # Before installing cron, tear down any pre-existing systemd timer
+        # left over from a previous install where systemd WAS available — we
+        # never want both cron AND timer firing the backup back-to-back.
+        if command -v systemctl &>/dev/null; then
+            systemctl disable --now time-clawshine.timer 2>/dev/null || true
+            for unit in /etc/systemd/system/time-clawshine.timer \
+                        /etc/systemd/system/time-clawshine.service; do
+                if [[ -f "$unit" ]]; then
+                    rm -f "$unit"
+                    echo "    Removed pre-existing systemd unit: $unit"
+                fi
+            done
+            systemctl daemon-reload 2>/dev/null || true
+        fi
+
         CRON_FILE="/etc/cron.d/time-clawshine"
         cat > "$CRON_FILE" <<EOF
 # Time Clawshine — hourly backup
