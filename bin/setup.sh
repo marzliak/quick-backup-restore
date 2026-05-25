@@ -201,6 +201,12 @@ else
     if [[ -f "$PASS_FILE" ]]; then
         echo "    WARN: Password file appeared unexpectedly at $PASS_FILE — not overwriting"
     else
+        # Generate 48 random bytes from openssl's CSPRNG and base64-encode them
+        # so the password is printable ASCII (restic stores the encryption key
+        # as a plain string in this file). 'set -C' (noclobber) refuses to
+        # overwrite if the path was created racing the [[ -f ]] check above.
+        # The redirect target on the right of '>' is $PASS_FILE — a path on
+        # local disk; this line does no remote IO.
         ( set -C; openssl rand -base64 48 > "$PASS_FILE" ) 2>/dev/null \
             || { echo "ERROR: Could not write password to $PASS_FILE"; exit 1; }
         chmod 600 "$PASS_FILE"

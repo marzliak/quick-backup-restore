@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.4] — 2026-05-25
+
+### Documentation
+
+- Clarify intent of the restic password generation line in `setup.sh`. The
+  ClawHub static-analysis scanner flagged
+  `( set -C; openssl rand -base64 48 > "$PASS_FILE" )` as a potential
+  exfiltration ("shell base64-encodes a local file and sends it over the
+  network"). False positive: `openssl rand -base64 48` is *generating* 48
+  bytes of entropy and base64-encoding them so the password is printable
+  ASCII; the `>` redirect target is `$PASS_FILE` on local disk (the
+  restic encryption key file at `/etc/time-clawshine.pass`). No network
+  call, no file-to-base64 step. Added an inline comment explaining the
+  CSPRNG → ASCII encoding → local write sequence and the role of
+  `set -C` (race-condition guard against the outer `[[ -f ]]` check).
+  No behavior change.
+
+---
+
 ## [3.1.3] — 2026-05-25
 
 ### Fixed
