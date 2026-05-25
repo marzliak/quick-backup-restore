@@ -337,33 +337,51 @@ EOF
 fi
 
 # --- Run initial backup to validate ----------------------------------------
-if [[ "$SKIP_BACKUP" == "true" ]]; then
-    echo ""
-    echo "==> Skipping initial backup (--skip-backup flag set)"
-else
+# Capture the result instead of exiting immediately on failure: the core
+# install (deps, repo, scheduler, logrotate) may all have completed fine even
+# if this first backup didn't run cleanly. We still want the user to see the
+# summary box so they know exactly what IS in place before deciding what to
+# fix or retry.
+VALIDATION_RESULT="skipped (--skip-backup)"
+VALIDATION_EXIT=0
+if [[ "$SKIP_BACKUP" != "true" ]]; then
     echo ""
     echo "==> Running initial backup to validate setup..."
     if TC_CONFIG="$CONFIG_FILE" "$TC_ROOT/bin/backup.sh"; then
-        echo ""
-        echo "    ✓ Initial backup successful"
+        VALIDATION_RESULT="success"
     else
-        echo ""
-        echo "    ✗ Initial backup FAILED — check config.yaml and retry"
-        exit 1
+        VALIDATION_EXIT=$?
+        VALIDATION_RESULT="FAILED (exit $VALIDATION_EXIT)"
     fi
 fi
 
 # --- Summary ---------------------------------------------------------------
+if [[ "$VALIDATION_EXIT" -eq 0 ]]; then
+    SETUP_HEADER="Setup complete ✓"
+else
+    SETUP_HEADER="Setup partial — see validation"
+fi
+
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
-echo "║              Setup complete ✓                        ║"
+printf "║  %-50s  ║\n" "$SETUP_HEADER"
 echo "╠══════════════════════════════════════════════════════╣"
 printf "║  Repository   : %-36s ║\n" "$REPO"
 printf "║  Password     : %-36s ║\n" "$PASS_FILE"
-printf "║  Cron         : %-36s ║\n" "$CRON_FILE"
+printf "║  Scheduler    : %-36s ║\n" "$CRON_FILE"
 printf "║  Log          : %-36s ║\n" "$LOG_FILE"
 printf "║  Retention    : %-36s ║\n" "$KEEP_LAST snapshots"
+printf "║  Validation   : %-36s ║\n" "$VALIDATION_RESULT"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
+
+if [[ "$VALIDATION_EXIT" -ne 0 ]]; then
+    echo "  ⚠ Core install OK, but the first backup did not finish cleanly."
+    echo "    Logs       : tail $LOG_FILE"
+    echo "    Retry now  : sudo /usr/local/bin/time-clawshine"
+    echo "    Common fix : create any missing backup.paths listed in the log."
+    exit "$VALIDATION_EXIT"
+fi
+
 echo "  Restore helper: sudo bin/restore.sh"
 echo "  View snapshots: restic -r $REPO --password-file $PASS_FILE snapshots"
