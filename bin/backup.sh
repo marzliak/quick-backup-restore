@@ -185,12 +185,17 @@ if [[ "$UPDATE_CHECK" == "true" ]]; then
     [[ -f "$UPDATE_MARKER" ]] && LAST_UPDATE_CHECK=$(cat "$UPDATE_MARKER" 2>/dev/null || true)
 
     if [[ "$LAST_UPDATE_CHECK" != "$TODAY" ]]; then
-        CURRENT_VER=$(tc_current_version)
-        CLAWHUB_API="https://clawhub.com/api/v1/skills/quick-backup-restore"
-        REMOTE_VER=$(curl -s --max-time 5 "$CLAWHUB_API" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
-        if [[ -n "$REMOTE_VER" && "$REMOTE_VER" != "$CURRENT_VER" ]]; then
-            log_warn "New version available: v$REMOTE_VER (current: v$CURRENT_VER). Run: clawhub update quick-backup-restore"
-        fi
+        tc_check_update
+        case "$TC_UPDATE_STATE" in
+            newer)
+                log_warn "New version available: v$TC_UPDATE_VERSION (current: v$(tc_current_version)). Run: clawhub update quick-backup-restore"
+                ;;
+            error)
+                # Don't spam alerts — single line in the log so operators can
+                # see WHY the check failed instead of just silent absence.
+                log_warn "Update check skipped: $TC_UPDATE_ERROR"
+                ;;
+        esac
         echo "$TODAY" > "$UPDATE_MARKER"
     fi
 fi

@@ -107,16 +107,19 @@ fi
 
 # --- Update check -----------------------------------------------------------
 if [[ "$UPDATE_CHECK" == "true" ]]; then
-    CLAWHUB_API="https://clawhub.com/api/v1/skills/quick-backup-restore"
-    REMOTE_VERSION=$(curl -s --max-time 5 "$CLAWHUB_API" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
-    if [[ -n "$REMOTE_VERSION" && "$REMOTE_VERSION" != "$VERSION" ]]; then
-        echo "  Update          : v$REMOTE_VERSION available (current: v$VERSION)"
-        echo "                    Run: clawhub update quick-backup-restore"
-    elif [[ -n "$REMOTE_VERSION" ]]; then
-        echo "  Update          : up to date (v$VERSION)"
-    else
-        echo "  Update          : could not reach ClawHub"
-    fi
+    tc_check_update "$VERSION"
+    case "$TC_UPDATE_STATE" in
+        newer)
+            echo "  Update          : v$TC_UPDATE_VERSION available (current: v$VERSION)"
+            echo "                    Run: clawhub update quick-backup-restore"
+            ;;
+        uptodate)
+            echo "  Update          : up to date (v$VERSION)"
+            ;;
+        *)
+            echo "  Update          : could not check — $TC_UPDATE_ERROR"
+            ;;
+    esac
 else
     echo "  Update check    : disabled"
 fi

@@ -278,6 +278,51 @@ tc_current_version() {
     fi
 }
 
+# --- Update check ------------------------------------------------------------
+# Quick (max 5s) ClawHub probe used by backup.sh's daily check and by
+# status.sh. Sets:
+#   TC_UPDATE_STATE   = "uptodate" | "newer" | "error"
+#   TC_UPDATE_VERSION = remote version when known (empty on error)
+#   TC_UPDATE_ERROR   = short reason string when state == error
+# Always returns 0 — failures surface via TC_UPDATE_STATE so callers can
+# render a descriptive message instead of just "could not reach ClawHub".
+tc_check_update() {
+    local current="${1:-$(tc_current_version)}"
+    local url="https://clawhub.com/api/v1/skills/quick-backup-restore"
+    TC_UPDATE_STATE="error"
+    TC_UPDATE_VERSION=""
+    TC_UPDATE_ERROR=""
+
+    local body http_code curl_err
+    body=$(curl -fsS --max-time 5 -w '\n%{http_code}' "$url" 2>&1)
+    curl_err=$?
+    if [[ $curl_err -ne 0 ]]; then
+        # Strip the trailing \n%{http_code} line; it isn't present on hard failures.
+        TC_UPDATE_ERROR="network error (curl exit $curl_err): ${body//$'\n'/ }"
+        return 0
+    fi
+
+    http_code="${body##*$'\n'}"
+    local json="${body%$'\n'*}"
+    if [[ "$http_code" != "200" ]]; then
+        TC_UPDATE_ERROR="HTTP $http_code from ClawHub"
+        return 0
+    fi
+
+    TC_UPDATE_VERSION=$(jq -r '.version // empty' <<< "$json" 2>/dev/null || true)
+    if [[ -z "$TC_UPDATE_VERSION" ]]; then
+        TC_UPDATE_ERROR="ClawHub response had no .version field"
+        return 0
+    fi
+
+    if [[ "$TC_UPDATE_VERSION" == "$current" ]]; then
+        TC_UPDATE_STATE="uptodate"
+    else
+        TC_UPDATE_STATE="newer"
+    fi
+    return 0
+}
+
 # --- Telegram digest ---------------------------------------------------------
 tg_digest() {
     local snapshot_count="$1"
