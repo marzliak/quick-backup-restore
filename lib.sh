@@ -226,16 +226,33 @@ restic_cmd() {
 }
 
 # --- Validation --------------------------------------------------------------
+# Filter BACKUP_PATHS to only paths that currently exist. A missing path is a
+# warning (logged + skipped), not a fatal error — typical on fresh OpenClaw
+# installs where some optional dirs (e.g. ~/.openclaw/cron) only appear once
+# the user creates cron jobs. We still fail loudly if EVERY configured path is
+# missing, since that means there is genuinely nothing to back up.
 tc_validate_paths() {
+    local existing=()
     local missing=()
     for path in "${BACKUP_PATHS[@]}"; do
-        [[ -e "$path" ]] || missing+=("$path")
+        if [[ -e "$path" ]]; then
+            existing+=("$path")
+        else
+            missing+=("$path")
+        fi
     done
+
     if [[ ${#missing[@]} -gt 0 ]]; then
-        log_error "Paths not found: ${missing[*]}"
-        tg_failure "Paths not found:\n${missing[*]}"
+        log_warn "Skipping ${#missing[@]} configured path(s) that do not exist: ${missing[*]}"
+    fi
+
+    if [[ ${#existing[@]} -eq 0 ]]; then
+        log_error "No backup paths exist — nothing to back up (configured: ${BACKUP_PATHS[*]})"
+        tg_failure "No backup paths exist on $(hostname). Check backup.paths in config.yaml."
         return 1
     fi
+
+    BACKUP_PATHS=("${existing[@]}")
     return 0
 }
 
