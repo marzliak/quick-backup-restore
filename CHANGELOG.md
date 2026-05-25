@@ -5,6 +5,80 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.3] — 2026-05-25
+
+### Fixed
+
+- **Missing backup paths now warn-and-skip instead of failing the entire backup.**
+  `tc_validate_paths` used to abort (and fire a Telegram alert) on the first
+  missing path, then `restic` never ran. On clean OpenClaw installs the default
+  `config.yaml` lists optional dirs like `/root/.openclaw/cron` that only
+  materialize once the user creates a cron job, so the very first validation
+  backup after setup would fail with `Paths not found: /root/.openclaw/cron`
+  even though everything else was healthy. New behavior: missing paths log a
+  single `WARN` line and drop out of the backup set; `restic` still runs on the
+  remaining paths. We only fail loudly (and alert via Telegram) if *every*
+  configured path is missing — the genuine "nothing to back up" case.
+
+- **`setup.sh` no longer hides what it accomplished when the validation backup
+  fails.** Before: a failing first backup `exit 1`'d before the summary box,
+  leaving the user with `Initial backup FAILED — check config.yaml and retry`
+  and no idea whether the repo was initialized, the systemd timer wired up,
+  logrotate configured, etc. After: the summary box prints unconditionally with
+  a new `Validation` line showing `success`, `skipped (--skip-backup)`, or
+  `FAILED (exit N)`; the script still exits non-zero on validation failure, but
+  prints a short follow-up block pointing at the log and the retry command
+  first. The field label `Cron` was renamed to `Scheduler` so it makes sense
+  whether systemd timer or cron actually got installed.
+
+- **Robust systemd detection + cleanup of the loser scheduler.** The
+  systemd-presence check used `systemctl is-system-running`, which returns
+  non-zero whenever the system reports `degraded` (any unrelated unit failed).
+  On otherwise-healthy hosts with one degraded unit, setup would incorrectly
+  fall back to cron — and the cron path did *not* remove a pre-existing systemd
+  timer, so you could end up with BOTH cron and the legacy timer firing the
+  same backup back-to-back. Replaced with the canonical
+  `[ -d /run/systemd/system ]` check (present iff PID 1 is systemd, regardless
+  of other units' state), and the cron fallback path now disables and removes
+  any prior `/etc/systemd/system/time-clawshine.{timer,service}` before
+  installing the cron file.
+
+- **`apt-get update` no longer runs when no apt-managed dep is missing.** Setup
+  unconditionally called `apt-get update -qq` even when `restic`, `curl`, and
+  `jq` were all present. On hosts with flaky third-party repos (docker,
+  nodesource, tailscale, …) every re-run spammed a dozen `W: Failed to fetch`
+  warnings even though no install was going to happen. The apt index is now
+  refreshed only when at least one apt-managed dep is actually missing;
+  otherwise setup prints `Skipping apt-get update (all apt-managed deps
+  already present)` and finishes the dep-check section in a fraction of a
+  second.
+
+- **Update check surfaces *why* it failed instead of going silent.** Both
+  `backup.sh` (daily) and `status.sh` did the same blind `curl … | jq …` pipe
+  against the ClawHub API. On any failure (DNS, TLS, HTTP 5xx, missing
+  `.version` field, JSON shape change, …) `status.sh` just printed
+  `Update : could not reach ClawHub` and `backup.sh` said nothing at all —
+  operators had no signal whether the problem was network, the host, or the
+  API. Extracted a shared `tc_check_update` helper in `lib.sh` that captures
+  the curl exit code, the HTTP status, and the parsed `.version` separately
+  and sets `TC_UPDATE_STATE` (`uptodate` / `newer` / `error`) plus
+  `TC_UPDATE_ERROR` with a short reason. `status.sh` now renders e.g.
+  `Update : could not check — HTTP 307 from ClawHub`, and `backup.sh` logs
+  `WARN Update check skipped: network error (curl exit 6): …` once per day.
+  Failures stay non-blocking — never abort a backup, never spam Telegram.
+
+- **Summary box stays aligned.** The setup summary used `printf '%-Ns'` with
+  field values that could contain multi-byte UTF-8 (`✓`, em dash, long systemd
+  unit name) — `printf` pads bytes, not visual columns, so the right border
+  drifted and `Scheduler : systemd: time-clawshine.timer (*-*-* *:05:00)`
+  overflowed entirely. Replaced the box-internal special chars with ASCII
+  (`[OK]`, `--`), shortened the systemd label to `systemd timer @ <calendar>`
+  (full unit name is still discoverable via `systemctl status`), and added a
+  `_field_fit` helper that truncates oversized values to
+  `<first 33 chars>...` — keeps the right border vertical on any path length.
+
+---
+
 ## [3.1.2] — 2026-05-14
 
 ### Changed
