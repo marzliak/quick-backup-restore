@@ -92,10 +92,15 @@ if [[ "$NO_SYSTEM" == "true" ]]; then
 else
     echo "==> Checking dependencies..."
 
-    # Build list of missing packages
+    # Build list of missing packages. yq comes from GitHub (not apt) — track
+    # apt deps separately so we only invoke apt-get update when actually needed.
     MISSING_PKGS=()
+    NEED_APT_UPDATE=false
     for pkg in restic curl jq; do
-        command -v "$pkg" &>/dev/null || MISSING_PKGS+=("$pkg")
+        if ! command -v "$pkg" &>/dev/null; then
+            MISSING_PKGS+=("$pkg")
+            NEED_APT_UPDATE=true
+        fi
     done
     if ! command -v yq &>/dev/null; then
         MISSING_PKGS+=("yq (from GitHub)")
@@ -122,7 +127,14 @@ else
         fi
     }
 
-    apt-get update -qq
+    # Only refresh the apt index when at least one apt-managed dep is missing.
+    # When all bins are present, apt-get update just produces noise (and can
+    # spam unrelated repo warnings) without changing the install outcome.
+    if [[ "$NEED_APT_UPDATE" == "true" ]]; then
+        apt-get update -qq
+    else
+        echo "    Skipping apt-get update (all apt-managed deps already present)"
+    fi
 
     install_pkg restic
     install_pkg curl
