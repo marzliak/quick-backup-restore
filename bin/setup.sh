@@ -304,7 +304,9 @@ EOF
 
         systemctl daemon-reload
         systemctl enable --now time-clawshine.timer
-        CRON_FILE="systemd: time-clawshine.timer ($SYSTEMD_CALENDAR)"
+        # Short form keeps the summary box within its 36-char field. The full
+        # unit name is implicit and discoverable via `systemctl status`.
+        CRON_FILE="systemd timer @ $SYSTEMD_CALENDAR"
         echo "    Systemd timer enabled: $SYSTEMD_CALENDAR"
 
         # Remove cron if it exists (migrating to systemd)
@@ -383,21 +385,37 @@ fi
 
 # --- Summary ---------------------------------------------------------------
 if [[ "$VALIDATION_EXIT" -eq 0 ]]; then
-    SETUP_HEADER="Setup complete ✓"
+    SETUP_HEADER="Setup complete [OK]"
 else
-    SETUP_HEADER="Setup partial — see validation"
+    SETUP_HEADER="Setup partial -- see validation"
 fi
+
+# ASCII-only padding so printf '%-Ns' pads BYTES that equal visual columns.
+# Box-drawing characters in the borders (╔ ═ ╗ etc.) are multi-byte but
+# echoed as fixed-width literals, so the borders themselves stay aligned.
+# Field values must stay ASCII; truncate long values to keep the right
+# border vertical.
+_field_fit() {
+    local val="$1" max=36
+    if [[ ${#val} -gt $max ]]; then
+        # Truncate with ASCII ellipsis so printf '%-Ns' byte-padding stays
+        # consistent with visual columns. Reserve 3 cols for "...".
+        printf '%s...' "${val:0:max-3}"
+    else
+        printf '%s' "$val"
+    fi
+}
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
 printf "║  %-50s  ║\n" "$SETUP_HEADER"
 echo "╠══════════════════════════════════════════════════════╣"
-printf "║  Repository   : %-36s ║\n" "$REPO"
-printf "║  Password     : %-36s ║\n" "$PASS_FILE"
-printf "║  Scheduler    : %-36s ║\n" "$CRON_FILE"
-printf "║  Log          : %-36s ║\n" "$LOG_FILE"
+printf "║  Repository   : %-36s ║\n" "$(_field_fit "$REPO")"
+printf "║  Password     : %-36s ║\n" "$(_field_fit "$PASS_FILE")"
+printf "║  Scheduler    : %-36s ║\n" "$(_field_fit "$CRON_FILE")"
+printf "║  Log          : %-36s ║\n" "$(_field_fit "$LOG_FILE")"
 printf "║  Retention    : %-36s ║\n" "$KEEP_LAST snapshots"
-printf "║  Validation   : %-36s ║\n" "$VALIDATION_RESULT"
+printf "║  Validation   : %-36s ║\n" "$(_field_fit "$VALIDATION_RESULT")"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
