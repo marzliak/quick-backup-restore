@@ -1,8 +1,8 @@
 {
   "name": "quick-backup-restore",
-  "version": "3.1.4",
+  "version": "3.2.0",
   "displayName": "OpenClaw Time Machine (restic quick backup and restore)",
-  "description": "Time Clawshine is a simple but powerful time machine for OpenClaw — hourly encrypted snapshots of your agent's brain (memory, sessions, config) so you can roll back to exactly 2 hours ago, not yesterday. Powered by restic's incremental deduplication — only changed bytes are stored, so backups are near-instant and storage stays tiny. YAML-configured, silent on success, Telegram-notified on failure.",
+  "description": "Time Clawshine is an OpenClaw backup, restore, cleanup, and scheduler tool. It can run setup with sudo, install dependencies, create a systemd timer or cron job, back up sensitive OpenClaw memory/sessions/config into an encrypted restic repository, restore files that may overwrite current state, and prune or purge old recovery data. External Telegram, healthcheck, and update-check integrations are disabled by default and require explicit configuration.",
   "emoji": "⏱",
   "author": {
     "name": "Leandro Marz",
@@ -17,6 +17,32 @@
   "requires": {
     "bins": ["bash", "openssl", "curl", "jq"],
     "auto_install": ["restic", "yq"]
+  },
+  "capabilities": {
+    "filesystem": [
+      "read configured backup paths",
+      "write encrypted restic repository data",
+      "restore snapshots into a chosen target, including / when explicitly confirmed",
+      "forget and prune old snapshots according to retention settings",
+      "optionally purge repository, password file, and logs during uninstall"
+    ],
+    "system": [
+      "setup requires root unless running --dry-run",
+      "optionally installs apt packages and yq",
+      "optionally writes /usr/local/bin/time-clawshine",
+      "optionally creates systemd timer/service or cron job",
+      "optionally writes logrotate configuration and lock/marker files"
+    ],
+    "network": [
+      "Telegram failure notifications are optional and disabled by default",
+      "healthcheck pings are optional and disabled by default",
+      "ClawHub update checks are optional and disabled by default",
+      "privacy.local_only blocks all external integrations by default"
+    ],
+    "sensitive_data": [
+      "OpenClaw memory, sessions, configs, and user-added paths may contain secrets",
+      "credential stores such as ~/.ssh and ~/.gnupg are not auto-suggested and require manual opt-in"
+    ]
   },
   "install": {
     "command": "sudo bash {baseDir}/bin/setup.sh"

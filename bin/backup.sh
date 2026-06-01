@@ -36,7 +36,7 @@ mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 touch "$LOG_FILE" 2>/dev/null || { echo "ERROR: Cannot write to $LOG_FILE"; exit 1; }
 
 # --- Signal trap — notify on unexpected termination ------------------------
-trap 'log_error "Backup interrupted by signal"; tg_failure "Backup interrupted by signal on $(hostname)"; hc_send /fail "Backup interrupted by signal"; exit 1' SIGTERM SIGINT
+trap 'log_error "Backup interrupted by signal"; tg_failure "Backup interrupted by signal"; hc_send /fail "Backup interrupted by signal"; exit 1' SIGTERM SIGINT
 
 # --- Concurrency lock — skip if another backup is already running -----------
 exec 200>/var/lock/time-clawshine.lock
@@ -185,7 +185,7 @@ if [[ "$UPDATE_CHECK" == "true" ]]; then
     [[ -f "$UPDATE_MARKER" ]] && LAST_UPDATE_CHECK=$(cat "$UPDATE_MARKER" 2>/dev/null || true)
 
     if [[ "$LAST_UPDATE_CHECK" != "$TODAY" ]]; then
-        tc_check_update
+        tc_check_update "$(tc_current_version)"
         case "$TC_UPDATE_STATE" in
             newer)
                 log_warn "New version available: v$TC_UPDATE_VERSION (current: v$(tc_current_version)). Run: clawhub update quick-backup-restore"

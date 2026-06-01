@@ -88,6 +88,65 @@ else
     _fail "$CONFIG_OUTPUT"
 fi
 
+# --- Security / privacy defaults -------------------------------------------
+_test "Privacy defaults block external egress"
+if PRIVACY_OUTPUT=$(bash -c "export TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config; [[ \"\$PRIVACY_LOCAL_ONLY\" == \"true\" && \"\$UPDATE_CHECK\" == \"false\" && \"\$TG_ENABLED\" == \"false\" && \"\$HC_ENABLED\" == \"false\" ]]" 2>&1); then
+    _ok
+else
+    _fail "$PRIVACY_OUTPUT"
+fi
+
+_test "local_only rejects enabled external integrations"
+TMP_CONFIG=$(mktemp)
+cp "$TC_ROOT/config.yaml" "$TMP_CONFIG"
+yq e -i '.notifications.telegram.enabled = true | .notifications.telegram.bot_token = "test-bot-token" | .notifications.telegram.chat_id = "test-chat-id"' "$TMP_CONFIG"
+if LOCAL_ONLY_OUTPUT=$(bash -c "export TC_CONFIG='$TMP_CONFIG' TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config" 2>&1); then
+    _fail "config unexpectedly passed with local_only=true and Telegram enabled"
+else
+    if grep -q "privacy.local_only is true" <<< "$LOCAL_ONLY_OUTPUT"; then
+        _ok
+    else
+        _fail "$LOCAL_ONLY_OUTPUT"
+    fi
+fi
+rm -f "$TMP_CONFIG"
+
+_test "Healthcheck URL validation requires HTTPS or loopback"
+TMP_CONFIG=$(mktemp)
+cp "$TC_ROOT/config.yaml" "$TMP_CONFIG"
+yq e -i '.privacy.local_only = false | .notifications.healthcheck.enabled = true | .notifications.healthcheck.url = "http://example.com/ping/test"' "$TMP_CONFIG"
+if HC_OUTPUT=$(bash -c "export TC_CONFIG='$TMP_CONFIG' TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config" 2>&1); then
+    _fail "config unexpectedly accepted non-loopback HTTP healthcheck URL"
+else
+    if grep -q "must use https" <<< "$HC_OUTPUT"; then
+        yq e -i '.notifications.healthcheck.url = "http://localhost:8080/ping/test"' "$TMP_CONFIG"
+        if HC_LOCAL_OUTPUT=$(bash -c "export TC_CONFIG='$TMP_CONFIG' TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config" 2>&1); then
+            _ok
+        else
+            _fail "$HC_LOCAL_OUTPUT"
+        fi
+    else
+        _fail "$HC_OUTPUT"
+    fi
+fi
+rm -f "$TMP_CONFIG"
+
+_test "Telegram failures omit raw details by default"
+TMP_CONFIG=$(mktemp)
+MSG_FILE=$(mktemp)
+cp "$TC_ROOT/config.yaml" "$TMP_CONFIG"
+yq e -i '.privacy.local_only = false | .privacy.send_error_details = false | .privacy.include_hostname = false | .notifications.telegram.enabled = true | .notifications.telegram.bot_token = "test-bot-token" | .notifications.telegram.chat_id = "test-chat-id"' "$TMP_CONFIG"
+if TG_OUTPUT=$(MSG_FILE="$MSG_FILE" bash -c "export TC_CONFIG='$TMP_CONFIG' TC_SKIP_PASS_CHECK=true; source '$TC_ROOT/lib.sh'; tc_load_config; tg_send() { printf '%s' \"\$1\" > \"\$MSG_FILE\"; }; tg_failure 'secret path /root/.ssh/id_rsa token=abc123'; cat \"\$MSG_FILE\"" 2>&1); then
+    if grep -Eq 'secret|/root/\.ssh|token=abc123|Host:' <<< "$TG_OUTPUT"; then
+        _fail "message leaked raw detail: $TG_OUTPUT"
+    else
+        _ok
+    fi
+else
+    _fail "$TG_OUTPUT"
+fi
+rm -f "$TMP_CONFIG" "$MSG_FILE"
+
 # --- Validate skill.json is valid JSON --------------------------------------
 _test "skill.json is valid JSON"
 if jq empty "$TC_ROOT/skill.json" 2>/dev/null; then
@@ -119,6 +178,13 @@ for script in bin/backup.sh bin/setup.sh bin/restore.sh bin/status.sh bin/custom
         _fail "--help returned non-zero"
     fi
 done
+
+_test "setup --dry-run exits 0 without root"
+if bash "$TC_ROOT/bin/setup.sh" --dry-run > /dev/null 2>&1; then
+    _ok
+else
+    _fail "setup --dry-run returned non-zero"
+fi
 
 # --- Backup → Restore → Verify roundtrip -----------------------------------
 _test "Roundtrip: backup → restore → verify"

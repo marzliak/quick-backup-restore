@@ -2,11 +2,13 @@
 
 [![CI](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml/badge.svg)](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml)
 
-**Hourly incremental backup for OpenClaw instances.**
+**Privileged backup, restore, cleanup, and scheduler tooling for OpenClaw instances.**
 
-Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success — only pings you when something breaks. Optional healthcheck.io / hc-style ping so you also notice when the backup *stops* running, not just when it explicitly fails.
+Restic-powered, YAML-configured, local-only by default. Time Clawshine can run setup with `sudo`, install dependencies, register systemd/cron persistence, back up sensitive OpenClaw memory/sessions/config, restore over current files, and prune old recovery points. Telegram, healthcheck.io / hc-style pings, and ClawHub update checks are optional and disabled by default.
 
 **Platform:** Linux only (bash scripts). macOS works with Homebrew restic but is untested. Windows not supported.
+
+Read [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md) before installing on a production agent.
 
 ---
 
@@ -15,8 +17,9 @@ Restic-powered, YAML-configured, Telegram-notified on failure. Silent on success
 ```bash
 git clone https://github.com/marzliak/quick-backup-restore
 cd quick-backup-restore
-nano config.yaml          # optional: add Telegram bot_token + chat_id for failure alerts
-sudo bin/setup.sh         # installs deps, initializes repo, registers cron
+bash bin/setup.sh --dry-run  # preview deps, files, scheduler, and privacy settings
+nano config.yaml             # optional: review paths and opt in to integrations
+sudo bin/setup.sh            # installs deps, initializes repo, registers scheduler
 ```
 
 Or, repo-only setup (no apt-get, no cron, no /usr/local/bin changes):
@@ -34,6 +37,7 @@ Done. Backups run every hour at :05.
 | Flag | Script | Description |
 |------|--------|-------------|
 | `--help` / `-h` | all scripts | Show usage and exit |
+| `--dry-run` | `setup.sh` | Preview dependencies, system files, scheduler, and privacy settings without changes |
 | `--skip-backup` | `setup.sh` | Skip the initial validation backup after setup |
 | `--no-system-install` | `setup.sh` | Repo-only setup: creates repo dir, generates password, inits restic. Skips apt-get, cron registration, and binary install to `/usr/local/bin` |
 | `--assume-yes` / `-y` | `setup.sh` | Skip dependency installation confirmation prompt (for CI/automated use) |
@@ -54,10 +58,11 @@ sudo bin/customize.sh
 ```
 
 Scans your system locally (100% offline — no API calls) and suggests:
-- Extra paths worth backing up (e.g. `~/.ssh`, `~/.config`)
+- Extra paths worth backing up (e.g. `~/.config`, custom scripts)
 - Junk patterns to exclude (e.g. `node_modules`, `*.log`)
 
 Shows suggestions and asks for confirmation before changing `config.yaml`.
+Credential stores such as `~/.ssh` and `~/.gnupg` are not auto-suggested. Add them manually only when you intend to create encrypted backup copies of those credentials and have strong controls around the repository and password file.
 
 ---
 
@@ -80,7 +85,7 @@ sudo bin/prune.sh --older-than 7d     # remove older than 7 days
 sudo bin/prune.sh --dry-run           # preview without deleting
 ```
 
-Shows before/after snapshot count and repo size. Sends Telegram notification with space reclaimed.
+Shows before/after snapshot count and repo size. If Telegram is explicitly enabled, sends only a minimal cleanup-complete notification by default.
 
 ---
 
@@ -90,7 +95,7 @@ Shows before/after snapshot count and repo size. Sends Telegram notification wit
 bash bin/test.sh
 ```
 
-Validates: dependencies, config syntax, shell syntax on all scripts, and a full backup→restore→verify roundtrip in a temp directory. No root required.
+Validates: dependencies, config syntax, shell syntax on all scripts, privacy/security defaults, healthcheck URL validation, notification redaction, and a full backup→restore→verify roundtrip in a temp directory. No root required.
 
 ---
 
@@ -189,6 +194,8 @@ sudo bin/restore.sh latest --target /tmp/openclaw-restore
 sudo bin/restore.sh latest --file /root/.openclaw/workspace/MEMORY.md --target /tmp/openclaw-restore
 ```
 
+Restoring to `/` can overwrite current OpenClaw state and requires the exact confirmation phrase `RESTORE TO /` after the mandatory dry-run preview.
+
 ---
 
 ## Installing as an OpenClaw workspace skill
@@ -248,9 +255,25 @@ notifications:
     url: ""              # e.g. https://hc-ping.com/<uuid> or self-hosted hc
     ping_start: true     # GET <url>/start at backup start (to measure duration)
 
+privacy:
+  local_only: true             # blocks Telegram, healthcheck, and update checks
+  send_error_details: false    # do not send raw command output externally
+  include_hostname: false      # do not include hostname in external messages
+
 updates:
-  check: true   # daily version check against ClawHub
+  check: false  # optional daily version check against ClawHub
 ```
+
+### Security and privacy defaults
+
+`privacy.local_only: true` is the hard egress gate. While it is true, Telegram,
+healthcheck, and update checks are blocked even if their individual blocks are
+edited. To enable an external integration, set `privacy.local_only: false`, then
+enable only the integration you want.
+
+External failure notifications are minimized by default: no hostname and no raw
+error output. Setting `privacy.send_error_details: true` may send a short
+sanitized error excerpt to the configured third party.
 
 ### About the `healthcheck` block
 
@@ -266,9 +289,11 @@ need a restore. The `healthcheck` block pings an external uptime endpoint:
 | Backup fails (any of: paths missing, disk low, restic backup/forget/prune/check) | `<url>/fail` |
 
 Point `url` at a [healthchecks.io](https://healthchecks.io) check (or a
-self-hosted instance) configured to expect a ping every hour. If two
+self-hosted instance) configured to expect a ping every hour. URLs must use
+`https://` unless they point to loopback localhost. If two
 consecutive pings are missed, the service alerts you. Pings have a 10s
-timeout and 2 retries; a ping failure is logged but never aborts the backup.
+timeout and 2 retries; a ping failure is logged without the full endpoint URL
+and never aborts the backup.
 
 ---
 
@@ -289,6 +314,9 @@ Your DR backup protects against "the VM is gone."
 ## Dependencies
 
 Auto-installed by `setup.sh`: `restic`, `yq` v4, `curl`, `jq`.
+`yq` is downloaded from GitHub only when missing and is installed only after
+SHA256 verification from the release checksum file. The setup script does not
+use `curl | bash`.
 
 ## Platform support
 
@@ -313,3 +341,5 @@ MIT — see [LICENSE.txt](LICENSE.txt)
 - **Repository:** [github.com/marzliak/quick-backup-restore](https://github.com/marzliak/quick-backup-restore)
 - **ClawHub:** [quick-backup-restore](https://clawhub.com/skills/quick-backup-restore)
 - **Issues:** [github.com/marzliak/quick-backup-restore/issues](https://github.com/marzliak/quick-backup-restore/issues)
+- **Security:** [SECURITY.md](SECURITY.md)
+- **Privacy:** [PRIVACY.md](PRIVACY.md)

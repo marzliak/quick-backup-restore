@@ -13,11 +13,13 @@ source "$TC_ROOT/lib.sh"
 SKIP_BACKUP=false
 NO_SYSTEM=false
 ASSUME_YES=false
+DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
         --skip-backup)       SKIP_BACKUP=true ;;
         --no-system-install) NO_SYSTEM=true ;;
         --assume-yes|-y)     ASSUME_YES=true ;;
+        --dry-run)           DRY_RUN=true ;;
         --help|-h)
             echo "Usage: sudo bin/setup.sh [options]"
             echo ""
@@ -25,11 +27,73 @@ for arg in "$@"; do
             echo "  --skip-backup          Skip initial validation backup after setup"
             echo "  --no-system-install    Repo-only setup: no apt-get, no cron/systemd, no /usr/local/bin"
             echo "  --assume-yes, -y       Skip confirmation prompts (for CI/automated use)"
+            echo "  --dry-run              Preview dependencies, files, and scheduler without changes"
             echo "  --help, -h             Show this help"
             exit 0
             ;;
     esac
 done
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "╔══════════════════════════════════════╗"
+    echo "║    Time Clawshine — Setup Preview    ║"
+    echo "╚══════════════════════════════════════╝"
+    echo ""
+    echo "No changes will be made."
+    echo ""
+
+    echo "Dependencies:"
+    for cmd in restic yq curl jq openssl; do
+        if command -v "$cmd" &>/dev/null; then
+            echo "  - $cmd: present"
+        else
+            echo "  - $cmd: would need installation"
+        fi
+    done
+
+    echo ""
+    if command -v yq &>/dev/null; then
+        export TC_SKIP_PASS_CHECK=true
+        if tc_load_config; then
+            echo "Repository and data:"
+            echo "  - Repository path       : $REPO"
+            echo "  - Password file         : $PASS_FILE"
+            echo "  - Log file              : $LOG_FILE"
+            echo "  - Retention             : keep last $KEEP_LAST snapshots"
+            echo "  - Backup paths          : ${BACKUP_PATHS[*]}"
+            echo "  - Privacy local_only    : $PRIVACY_LOCAL_ONLY"
+            echo "  - Telegram enabled      : $TG_ENABLED"
+            echo "  - Healthcheck enabled   : $HC_ENABLED"
+            echo "  - Update check          : $UPDATE_CHECK"
+        else
+            echo "Config could not be loaded; fix validation errors above before setup."
+            exit 1
+        fi
+    else
+        echo "Config preview skipped because yq is not installed yet."
+    fi
+
+    echo ""
+    if [[ "$NO_SYSTEM" == "true" ]]; then
+        echo "System changes: none (--no-system-install)"
+    else
+        echo "System changes that would be applied with root:"
+        echo "  - Install missing apt packages as needed: restic, curl, jq"
+        echo "  - Install yq from GitHub with SHA256 verification if absent"
+        echo "  - Install /usr/local/bin/time-clawshine"
+        echo "  - Create /usr/local/bin/quick-backup-restore symlink"
+        if [[ -d /run/systemd/system ]] && command -v systemctl &>/dev/null; then
+            echo "  - Register /etc/systemd/system/time-clawshine.{service,timer}"
+        else
+            echo "  - Register /etc/cron.d/time-clawshine"
+        fi
+        echo "  - Configure /etc/logrotate.d/time-clawshine"
+        echo "  - Restrict config.yaml permissions to 600"
+    fi
+    echo ""
+    echo "Run without --dry-run when you are ready to apply."
+    exit 0
+fi
 
 # Must run as root
 [[ $EUID -eq 0 ]] || { echo "ERROR: Run as root (sudo bin/setup.sh)"; exit 1; }
@@ -155,24 +219,27 @@ else
         YQ_BSD_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/checksums-bsd"
 
         # 1. Download checksum FIRST (fail early if unavailable)
-        EXPECTED_SHA=$(curl -sL "$YQ_BSD_URL" | grep "^SHA256 (${YQ_BINARY})" | awk -F'= ' '{print $2}')
+        EXPECTED_SHA=$(curl -fsSL "$YQ_BSD_URL" | grep "^SHA256 (${YQ_BINARY})" | awk -F'= ' '{print $2}')
         if [[ -z "$EXPECTED_SHA" ]]; then
-            echo "    WARN: Could not fetch yq checksum — skipping verification"
+            echo "    ERROR: Could not fetch yq checksum — refusing unverified binary install"
+            exit 1
         fi
 
-        # 2. Download binary
-        curl -sL "$YQ_URL" -o "$YQ_BIN"
+        # 2. Download binary to a temporary path so an unverified file never
+        # replaces an existing yq installation.
+        YQ_TMP=$(mktemp)
+        curl -fsSL "$YQ_URL" -o "$YQ_TMP"
 
         # 3. Verify checksum
-        if [[ -n "$EXPECTED_SHA" ]]; then
-            ACTUAL_SHA=$(sha256sum "$YQ_BIN" | awk '{print $1}')
-            if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
-                rm -f "$YQ_BIN"
-                echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
-                echo "    Binary removed. Possible supply chain compromise — investigate before retrying."
-                exit 1
-            fi
+        ACTUAL_SHA=$(sha256sum "$YQ_TMP" | awk '{print $1}')
+        if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+            rm -f "$YQ_TMP"
+            echo "    ERROR: yq checksum mismatch! Expected $EXPECTED_SHA, got $ACTUAL_SHA"
+            echo "    Temporary binary removed. Possible supply chain compromise — investigate before retrying."
+            exit 1
         fi
+        install -m 755 "$YQ_TMP" "$YQ_BIN"
+        rm -f "$YQ_TMP"
         chmod +x "$YQ_BIN"
         echo "    yq $YQ_VERSION installed (checksum verified) — OK"
     else

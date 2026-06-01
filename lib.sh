@@ -41,6 +41,10 @@ tc_load_config() {
     HC_URL=$(_cfg '.notifications.healthcheck.url')
     HC_PING_START=$(_cfg '.notifications.healthcheck.ping_start')
 
+    PRIVACY_LOCAL_ONLY=$(_cfg '.privacy.local_only')
+    PRIVACY_SEND_ERROR_DETAILS=$(_cfg '.privacy.send_error_details')
+    PRIVACY_INCLUDE_HOSTNAME=$(_cfg '.privacy.include_hostname')
+
     CHECK_EVERY=$(_cfg '.integrity.check_every')
     MIN_DISK_MB=$(_cfg '.safety.min_disk_mb')
     UPDATE_CHECK=$(_cfg '.updates.check')
@@ -53,6 +57,9 @@ tc_load_config() {
     [[ -z "$HC_ENABLED"     || "$HC_ENABLED"     == "null" ]] && HC_ENABLED=false
     [[ -z "$HC_URL"         || "$HC_URL"         == "null" ]] && HC_URL=""
     [[ -z "$HC_PING_START"  || "$HC_PING_START"  == "null" ]] && HC_PING_START=true
+    [[ -z "$PRIVACY_LOCAL_ONLY"         || "$PRIVACY_LOCAL_ONLY"         == "null" ]] && PRIVACY_LOCAL_ONLY=true
+    [[ -z "$PRIVACY_SEND_ERROR_DETAILS" || "$PRIVACY_SEND_ERROR_DETAILS" == "null" ]] && PRIVACY_SEND_ERROR_DETAILS=false
+    [[ -z "$PRIVACY_INCLUDE_HOSTNAME"   || "$PRIVACY_INCLUDE_HOSTNAME"   == "null" ]] && PRIVACY_INCLUDE_HOSTNAME=false
 
     # Validate critical config values
     _require_cfg() {
@@ -98,6 +105,30 @@ tc_load_config() {
 tc_validate_config() {
     local errors=()
 
+    _validate_bool() {
+        local name="$1" val="$2"
+        case "$val" in
+            true|false) ;;
+            *) errors+=("$name must be true or false (got: '$val')") ;;
+        esac
+    }
+
+    _is_loopback_http_url() {
+        local url="$1"
+        [[ "$url" =~ ^http://(localhost|127\.0\.0\.1|127\.[0-9]+\.[0-9]+\.[0-9]+|\[::1\])(:[0-9]+)?(/|$) ]]
+    }
+
+    _validate_external_url() {
+        local name="$1" url="$2"
+        if [[ "$url" =~ ^https:// ]]; then
+            return 0
+        fi
+        if _is_loopback_http_url "$url"; then
+            return 0
+        fi
+        errors+=("$name must use https:// unless it points to loopback localhost")
+    }
+
     # retention.keep_last must be a positive integer
     if ! [[ "$KEEP_LAST" =~ ^[0-9]+$ ]] || [[ "$KEEP_LAST" -le 0 ]]; then
         errors+=("retention.keep_last must be a positive integer (got: '$KEEP_LAST')")
@@ -127,6 +158,15 @@ tc_validate_config() {
         errors+=("backup.paths must have at least one path")
     fi
 
+    _validate_bool 'notifications.telegram.enabled' "$TG_ENABLED"
+    _validate_bool 'notifications.telegram.daily_digest' "$TG_DAILY_DIGEST"
+    _validate_bool 'notifications.healthcheck.enabled' "$HC_ENABLED"
+    _validate_bool 'notifications.healthcheck.ping_start' "$HC_PING_START"
+    _validate_bool 'privacy.local_only' "$PRIVACY_LOCAL_ONLY"
+    _validate_bool 'privacy.send_error_details' "$PRIVACY_SEND_ERROR_DETAILS"
+    _validate_bool 'privacy.include_hostname' "$PRIVACY_INCLUDE_HOSTNAME"
+    _validate_bool 'updates.check' "$UPDATE_CHECK"
+
     # telegram: if enabled, token and chat_id must be set
     if [[ "$TG_ENABLED" == "true" ]]; then
         [[ -z "$TG_TOKEN" || "$TG_TOKEN" == "null" ]] && \
@@ -139,6 +179,19 @@ tc_validate_config() {
     if [[ "$HC_ENABLED" == "true" ]]; then
         [[ -z "$HC_URL" || "$HC_URL" == "null" ]] && \
             errors+=("notifications.healthcheck.url is required when enabled: true")
+        [[ -n "$HC_URL" && "$HC_URL" != "null" ]] && \
+            _validate_external_url 'notifications.healthcheck.url' "$HC_URL"
+    fi
+
+    # local_only is a hard privacy gate. External integrations require users to
+    # set it false explicitly so setup cannot enable egress by accident.
+    if [[ "$PRIVACY_LOCAL_ONLY" == "true" ]]; then
+        [[ "$TG_ENABLED" == "true" ]] && \
+            errors+=("privacy.local_only is true; set it to false before enabling Telegram")
+        [[ "$HC_ENABLED" == "true" ]] && \
+            errors+=("privacy.local_only is true; set it to false before enabling healthcheck")
+        [[ "$UPDATE_CHECK" == "true" ]] && \
+            errors+=("privacy.local_only is true; set it to false before enabling update checks")
     fi
 
     if [[ ${#errors[@]} -gt 0 ]]; then
@@ -164,6 +217,7 @@ log_error() { log "ERROR" "$1"; }
 # --- Telegram ----------------------------------------------------------------
 tg_send() {
     local msg="$1"
+    [[ "$PRIVACY_LOCAL_ONLY" == "true" ]] && return 0
     [[ "$TG_ENABLED" != "true" ]]     && return 0
     [[ -z "$TG_TOKEN" ]]              && return 0
     [[ "$TG_TOKEN" == "null" ]]       && return 0
@@ -180,20 +234,36 @@ tg_send() {
         > /dev/null 2>&1 || true
 }
 
+_external_hostname_line() {
+    [[ "$PRIVACY_INCLUDE_HOSTNAME" == "true" ]] || return 0
+    local hostname; hostname=$(hostname 2>/dev/null || echo "unknown")
+    printf 'Host: %s\n' "$hostname"
+}
+
+_redact_external_text() {
+    local input="$1"
+    head -c 600 <<< "$input" \
+        | sed -E \
+            -e 's#[[:alnum:]_.-]+:[[:alnum:]_/@%+=.,:-]+#/[redacted-secret]#g' \
+            -e 's#/[[:alnum:]_./@%+:-]+#/[redacted-path]#g' \
+            -e 's#([Tt]oken|[Pp]assword|[Ss]ecret|[Kk]ey)=([^[:space:]]+)#\1=[redacted]#g'
+}
+
 tg_failure() {
     local error_msg="$1"
-    local hostname; hostname=$(hostname)
-    # Truncate error output to avoid leaking sensitive paths/data via Telegram
-    local safe_msg
-    safe_msg=$(head -c 800 <<< "$error_msg")
-    [[ ${#error_msg} -gt 800 ]] && safe_msg+=$'\n[...truncated]'
-    tg_send "🔴 *Time Clawshine — Backup FALHOU*
-🖥 \`$hostname\`
-🕐 $(timestamp)
+    local host_line details_line=""
+    host_line=$(_external_hostname_line)
 
-\`\`\`
-$safe_msg
-\`\`\`"
+    if [[ "$PRIVACY_SEND_ERROR_DETAILS" == "true" ]]; then
+        local safe_msg
+        safe_msg=$(_redact_external_text "$error_msg")
+        [[ ${#error_msg} -gt 600 ]] && safe_msg+=$'\n[...truncated]'
+        details_line=$'\nDetails (redacted):\n```\n'"$safe_msg"$'\n```'
+    fi
+
+    tg_send "🔴 *Time Clawshine — Backup FALHOU*
+${host_line}Time: $(timestamp)
+Status: backup action failed. Check local logs with status.sh.${details_line}"
 }
 
 # --- Healthcheck (healthchecks.io / hc-style endpoints) ---------------------
@@ -203,6 +273,7 @@ $safe_msg
 #        hc_send /start          → mark backup started
 #        hc_send /fail [msg]     → mark backup failed (optional body)
 hc_send() {
+    [[ "$PRIVACY_LOCAL_ONLY" == "true" ]] && return 0
     [[ "$HC_ENABLED" != "true" ]]   && return 0
     [[ -z "$HC_URL" ]]              && return 0
     [[ "$HC_URL" == "null" ]]       && return 0
@@ -210,13 +281,14 @@ hc_send() {
     local state="${1:-}"
     local body="${2:-}"
     local url="${HC_URL%/}${state}"
+    [[ "$PRIVACY_SEND_ERROR_DETAILS" != "true" ]] && body=""
 
     if [[ -n "$body" ]]; then
         curl -fsS -m 10 --retry 2 --data-raw "$body" "$url" >/dev/null 2>&1 \
-            || log_warn "Healthcheck ping failed: $url"
+            || log_warn "Healthcheck ping failed for state '${state:-success}'"
     else
         curl -fsS -m 10 --retry 2 "$url" >/dev/null 2>&1 \
-            || log_warn "Healthcheck ping failed: $url"
+            || log_warn "Healthcheck ping failed for state '${state:-success}'"
     fi
 }
 
@@ -248,7 +320,7 @@ tc_validate_paths() {
 
     if [[ ${#existing[@]} -eq 0 ]]; then
         log_error "No backup paths exist — nothing to back up (configured: ${BACKUP_PATHS[*]})"
-        tg_failure "No backup paths exist on $(hostname). Check backup.paths in config.yaml."
+        tg_failure "No backup paths exist. Check backup.paths in config.yaml."
         return 1
     fi
 
@@ -293,6 +365,12 @@ tc_check_update() {
     TC_UPDATE_VERSION=""
     TC_UPDATE_ERROR=""
 
+    if [[ "${PRIVACY_LOCAL_ONLY:-true}" == "true" || "${UPDATE_CHECK:-false}" != "true" ]]; then
+        TC_UPDATE_STATE="disabled"
+        TC_UPDATE_ERROR="disabled by privacy/update configuration"
+        return 0
+    fi
+
     local body http_code curl_err
     body=$(curl -fsS --max-time 5 -w '\n%{http_code}' "$url" 2>&1)
     curl_err=$?
@@ -311,6 +389,7 @@ tc_check_update() {
 
     TC_UPDATE_VERSION=$(jq -r '.version // empty' <<< "$json" 2>/dev/null || true)
     if [[ -z "$TC_UPDATE_VERSION" ]]; then
+        # shellcheck disable=SC2034  # Read by callers after tc_check_update returns.
         TC_UPDATE_ERROR="ClawHub response had no .version field"
         return 0
     fi
@@ -318,6 +397,7 @@ tc_check_update() {
     if [[ "$TC_UPDATE_VERSION" == "$current" ]]; then
         TC_UPDATE_STATE="uptodate"
     else
+        # shellcheck disable=SC2034  # Read by callers after tc_check_update returns.
         TC_UPDATE_STATE="newer"
     fi
     return 0
@@ -328,14 +408,14 @@ tg_digest() {
     local snapshot_count="$1"
     local repo_size="$2"
     local disk_free="$3"
-    local hostname; hostname=$(hostname)
+    local host_line
+    host_line=$(_external_hostname_line)
     tg_send "📊 *Time Clawshine — Resumo diário*
-🖥 \`$hostname\`
-🕐 $(timestamp)
+${host_line}Time: $(timestamp)
 
-📸 Snapshots: $snapshot_count
-💾 Repositório: $repo_size
-💿 Disco livre: $disk_free"
+Snapshots: $snapshot_count
+Repository: $repo_size
+Disk free: $disk_free"
 }
 
 # --- Disk space check --------------------------------------------------------

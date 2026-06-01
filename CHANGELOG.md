@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.0] — 2026-06-01
+
+### Security
+
+- Respond to the ClawHub security audit by making sensitive capabilities explicit
+  in `skill.json`, `SKILL.md`, `README.md`, `SECURITY.md`, and `PRIVACY.md`.
+  The docs now call out root setup, package installation, scheduler persistence,
+  backup of sensitive OpenClaw memory/session/config data, restore overwrite
+  risk, retention/prune deletion, purge behavior, and optional network egress.
+- Add `privacy.local_only: true` as the default hard egress gate. While enabled,
+  Telegram, healthcheck, and ClawHub update checks are blocked even if their
+  individual config blocks are edited.
+- Change `updates.check` default to `false`; update checks now require explicit
+  opt-in by setting `privacy.local_only: false` and `updates.check: true`.
+- Minimize external notifications by default: no hostname and no raw error
+  output. `privacy.send_error_details: true` enables only a short sanitized error
+  excerpt.
+- Require healthcheck URLs to use `https://` unless they point to loopback
+  localhost.
+- Remove the Telegram notification from `uninstall.sh`; uninstall no longer
+  reports host identity, timing, or removal state to an external service.
+- Stop auto-suggesting `~/.ssh` and `~/.gnupg` in `customize.sh`; credential
+  stores now require manual opt-in with explicit warnings.
+
+### Added
+
+- `setup.sh --dry-run` previews dependencies, repository/password/log paths,
+  backup paths, privacy settings, and planned system files without requiring
+  root or changing the machine.
+- Stronger restore confirmation for target `/`: users must type
+  `RESTORE TO /` after the dry-run preview.
+- Extra tests for privacy defaults, local-only gating, healthcheck URL
+  validation, and default notification redaction.
+
+### Changed
+
+- `setup.sh` now refuses to install `yq` when the release checksum cannot be
+  fetched, and downloads to a temporary file before replacing `/usr/local/bin/yq`.
+
+---
+
 ## [3.1.4] — 2026-05-25
 
 ### Documentation

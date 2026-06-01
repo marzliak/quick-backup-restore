@@ -67,6 +67,11 @@ if [[ -d "$REPO" ]]; then
     fi
 fi
 
+# --- Privacy / egress -------------------------------------------------------
+echo ""
+echo "  Privacy         : local_only=$PRIVACY_LOCAL_ONLY, error_details=$PRIVACY_SEND_ERROR_DETAILS, hostname=$PRIVACY_INCLUDE_HOSTNAME"
+echo "  External egress : telegram=$TG_ENABLED, healthcheck=$HC_ENABLED, update_check=$UPDATE_CHECK"
+
 # --- Password file ----------------------------------------------------------
 echo ""
 if [[ -f "$PASS_FILE" ]]; then

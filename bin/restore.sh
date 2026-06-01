@@ -133,6 +133,20 @@ fi
 RESTORE_ARGS=(restore "$SNAPSHOT_ID" --target "$TARGET")
 [[ -n "$FILE_FILTER" ]] && RESTORE_ARGS+=(--include "$FILE_FILTER")
 
+echo ""
+echo "Restore plan:"
+echo "  Snapshot : $SNAPSHOT_ID"
+echo "  Target   : $TARGET"
+if [[ -n "$FILE_FILTER" ]]; then
+    echo "  Scope    : $FILE_FILTER"
+else
+    echo "  Scope    : full snapshot"
+fi
+if [[ "$TARGET" == "/" ]]; then
+    echo ""
+    echo "WARNING: target is /. Existing files may be overwritten or reverted."
+fi
+
 # --- Dry run first ----------------------------------------------------------
 echo ""
 echo "==> Dry run preview:"
@@ -145,8 +159,13 @@ if [[ $DRY_RUN_LINES -gt 40 ]]; then
 fi
 echo ""
 
-read -rp "Proceed with restore? [y/N]: " CONFIRM
-[[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+if [[ "$TARGET" == "/" ]]; then
+    read -rp "Type RESTORE TO / to proceed: " CONFIRM
+    [[ "$CONFIRM" == "RESTORE TO /" ]] || { echo "Aborted."; exit 0; }
+else
+    read -rp "Proceed with restore? [y/N]: " CONFIRM
+    [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+fi
 
 # --- Real restore -----------------------------------------------------------
 echo ""
@@ -168,10 +187,14 @@ echo ""
 echo "✓ Restore complete."
 [[ "$TARGET" != "/" ]] && echo "  Files restored to: $TARGET"
 
-# Notify via Telegram
+# Notify via Telegram if explicitly enabled. Keep external content minimal by
+# default; snapshot/target details are local unless send_error_details is true.
 log_info "Restore completed: snapshot=$SNAPSHOT_ID target=$TARGET"
-tg_send "🔄 *Time Clawshine — Restore realizado*
-🖥 \`$(hostname)\`
-🕐 $(timestamp)
-📸 Snapshot: \`$SNAPSHOT_ID\`
-📁 Target: \`$TARGET\`"
+HOST_LINE=$(_external_hostname_line)
+DETAILS=""
+if [[ "$PRIVACY_SEND_ERROR_DETAILS" == "true" ]]; then
+    DETAILS=$'\nSnapshot: `'"$SNAPSHOT_ID"$'`\nTarget: `'"$TARGET"$'`'
+fi
+tg_send "🔄 *Time Clawshine — Restore complete*
+${HOST_LINE}Time: $(timestamp)
+Status: restore completed. Check local logs for details.${DETAILS}"

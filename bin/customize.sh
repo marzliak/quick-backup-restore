@@ -23,8 +23,9 @@ for arg in "$@"; do
             echo "Usage: sudo bin/customize.sh"
             echo ""
             echo "Analyzes your system locally (no API calls, 100% offline) and suggests:"
-            echo "  - Extra paths worth backing up (e.g. ~/.ssh, ~/.config)"
+            echo "  - Extra paths worth backing up (e.g. ~/.config, custom scripts)"
             echo "  - Junk patterns to exclude (e.g. node_modules, *.log)"
+            echo "  - Credential stores like ~/.ssh and ~/.gnupg are not auto-suggested"
             echo ""
             echo "Shows suggestions and asks for confirmation before modifying config.yaml."
             exit 0
@@ -76,11 +77,9 @@ echo "==> Scanning for extra paths worth backing up..."
 WHITELIST_SUGGESTIONS=()
 
 # Hardcoded well-known important directories
-CANDIDATE_IMPORTANT=(
+    CANDIDATE_IMPORTANT=(
     "$HOME/bin"
     "$HOME/.config"
-    "$HOME/.ssh"
-    "$HOME/.gnupg"
     "$HOME/.local/share"
     "$HOME/.bashrc"
     "$HOME/.profile"
@@ -162,6 +161,10 @@ echo ""
 echo "┌─────────────────────────────────────────────────────────┐"
 echo "│              Local Analysis Suggestions                 │"
 echo "├─────────────────────────────────────────────────────────┤"
+echo "│  Credential stores like ~/.ssh and ~/.gnupg are not      │"
+echo "│  auto-suggested. Add them manually only with strong      │"
+echo "│  controls for repo access and password-file backup.      │"
+echo "│                                                         │"
 
 if [[ ${#WHITELIST_SUGGESTIONS[@]} -eq 0 ]]; then
     echo "│  Extra paths (whitelist): none suggested                │"

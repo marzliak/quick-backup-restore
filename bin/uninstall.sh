@@ -196,15 +196,8 @@ if [[ "$PURGE" == "true" ]]; then
     fi
 fi
 
-# --- Telegram notification ---------------------------------------------------
-local_hostname=$(hostname 2>/dev/null || echo "unknown")
-tg_send "🗑 *Time Clawshine — Removido*
-🖥 \`$local_hostname\`
-🕐 $(date '+%Y-%m-%d %H:%M:%S')
-
-Sistema desinstalado.$( [[ "$PURGE" == "true" ]] && echo " Dados purgados." || echo " Dados preservados.")" 2>/dev/null || true
-
 echo ""
 echo "✓ Uninstall complete."
 [[ "$PURGE" != "true" ]] && echo "  Your backup repository and password file are preserved."
+echo "  No external uninstall notification was sent."
 echo "  Source files in $TC_ROOT are untouched — you can re-install with: sudo bin/setup.sh"

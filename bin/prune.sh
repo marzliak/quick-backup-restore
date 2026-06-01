@@ -61,9 +61,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ -n "$KEEP_LAST_OVERRIDE" ]] && { ! [[ "$KEEP_LAST_OVERRIDE" =~ ^[0-9]+$ ]] || [[ "$KEEP_LAST_OVERRIDE" -le 0 ]]; }; then
+    echo "ERROR: --keep-last must be a positive integer (got: $KEEP_LAST_OVERRIDE)"
+    exit 1
+fi
+
+if [[ -n "$OLDER_THAN" ]] && ! [[ "$OLDER_THAN" =~ ^[0-9]+[smhdwMy]$ ]]; then
+    echo "ERROR: --older-than must look like a restic duration (examples: 24h, 7d, 4w, 6M, 1y)"
+    exit 1
+fi
+
 echo "╔═════════════════════════════════════════════════════╗"
 echo "║        Time Clawshine — Repository Cleanup          ║"
 echo "╚═════════════════════════════════════════════════════╝"
+echo ""
+echo "  WARNING: cleanup can permanently remove old recovery points."
+echo "  A dry-run preview is shown before any deletion unless --dry-run is used."
 echo ""
 
 # --- Show current state -----------------------------------------------------
@@ -151,8 +164,11 @@ else
     echo "  Snapshots : $SNAP_COUNT → $NEW_SNAP_COUNT"
     echo "  Repo size : $REPO_SIZE → $NEW_REPO_SIZE"
     log_info "prune.sh: cleanup done — snapshots $SNAP_COUNT→$NEW_SNAP_COUNT, size $REPO_SIZE→$NEW_REPO_SIZE"
-    tg_send "🧹 *Time Clawshine — Cleanup realizado*
-🖥 \`$(hostname)\`
-📸 Snapshots: $SNAP_COUNT → $NEW_SNAP_COUNT
-💾 Tamanho: $REPO_SIZE → $NEW_REPO_SIZE"
+    HOST_LINE=$(_external_hostname_line)
+    DETAILS=""
+    if [[ "$PRIVACY_SEND_ERROR_DETAILS" == "true" ]]; then
+        DETAILS=$'\nSnapshots: '"$SNAP_COUNT -> $NEW_SNAP_COUNT"$'\nRepository size: '"$REPO_SIZE -> $NEW_REPO_SIZE"
+    fi
+    tg_send "🧹 *Time Clawshine — Cleanup complete*
+${HOST_LINE}Status: repository cleanup completed. Check local logs for details.${DETAILS}"
 fi

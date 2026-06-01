@@ -1,7 +1,7 @@
 ---
 name: quick-backup-restore
-description: "Time Clawshine — a simple but powerful time machine for OpenClaw. Hourly encrypted incremental snapshots of your agent's brain via restic. Use when the user asks to backup, restore, roll back, check status, or update."
-metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Time Clawshine setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore" } }
+description: "Time Clawshine — OpenClaw backup, restore, cleanup, and scheduler tool. It can run setup with sudo, install dependencies, create systemd/cron persistence, back up sensitive agent memory/sessions/config, restore over current files, and prune or purge recovery data. External Telegram, healthcheck, and update-check integrations are disabled by default."
+metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Time Clawshine setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore", "capabilities": { "filesystem": ["read configured backup paths", "write encrypted restic repository", "restore snapshots to target paths", "forget/prune snapshots", "optional destructive purge"], "system": ["sudo setup", "optional package install", "optional systemd timer or cron", "optional logrotate and /usr/local/bin install"], "network": ["optional Telegram", "optional healthcheck", "optional ClawHub update check", "blocked by privacy.local_only by default"], "sensitive_data": ["OpenClaw memory", "sessions", "config", "user-added paths may contain secrets"] } } }
 ---
 
 # ⏱🦞 Time Clawshine
@@ -11,6 +11,8 @@ metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openss
 You spent weeks training your OpenClaw agent — building memory, refining context, tuning personality. Then one bad session wipes it. Gone. And your last "real" backup? Yesterday. Maybe last week.
 
 **Time Clawshine gives you a time machine.** Every hour, it silently takes an encrypted, incremental snapshot of your agent's brain — memory, sessions, config, everything. Only changed bytes are stored, so it runs in seconds and barely uses disk. When things break (and they will), you roll back to *exactly* the moment before it happened. Not yesterday. Not "the last backup." The exact hour.
+
+Security note: this is a privileged backup/restore tool, not a narrow read-only helper. Setup can install packages and a scheduler with `sudo`; restore can overwrite current files; retention/prune can remove old recovery points; and optional external integrations can send minimal operational metadata only after explicit opt-in.
 
 **One command to install. Zero maintenance. Just works.**
 
@@ -26,24 +28,24 @@ sudo bash {baseDir}/bin/setup.sh
 | Bad session corrupts context | Rebuild from scratch | Roll back one snapshot |
 | "What changed?" | No idea | `restic diff` between any two snapshots |
 | Disk fills up | Backup keeps growing | Dedup — only deltas stored |
-| Something fails | You find out next week | Telegram ping in 60 seconds |
+| Something fails | You find out next week | Local log, optional minimal Telegram ping |
 
 ### What's under the hood
 
 - **Restic** — battle-tested backup engine, AES-256 encryption, incremental deduplication
 - **72 snapshots / 3 days** of history at hourly resolution (configurable)
-- **Disk guard** — aborts before filling your disk, alerts via Telegram
+- **Disk guard** — aborts before filling your disk, optionally alerts via Telegram
 - **Integrity checks** — automatic `restic check` every 24 backups
 - **Daily digest** — Telegram summary with snapshot count, repo size, disk free
 - **Healthcheck ping** — opt-in healthchecks.io / hc-style endpoint pings (`/start`, `/`, `/fail`) so you also know when the backup *stops running*, not just when it fails
-- **Update awareness** — checks ClawHub daily, never auto-updates
+- **Update awareness** — optional ClawHub check, disabled by default, never auto-updates
 - **Status dashboard** — `bin/status.sh` for a full health check at a glance
 - **Repository cleanup** — `bin/prune.sh` to manually reclaim disk space
 - **Self-test** — `bin/test.sh` validates backup→restore→verify roundtrip
 - **Guided setup** — agent reads `SETUP_GUIDE.md` and walks the user through every option
 - **Dry-run mode** — `backup.sh --dry-run` to validate without writing
 - **Uninstall** — `bin/uninstall.sh` for clean removal (preserves data by default)
-- **100% offline** — no data leaves your machine (Telegram and update check are opt-in)
+- **Local-only by default** — no Telegram, healthcheck, or update-check egress unless `privacy.local_only` is explicitly disabled
 
 ---
 
@@ -66,6 +68,10 @@ If the user wants a quick install without customization:
    sudo bash {baseDir}/bin/status.sh
    ```
 2. Run setup:
+   Preview first if the user wants to see dependencies, system files, and scheduler changes without modifying the machine:
+   ```bash
+   bash {baseDir}/bin/setup.sh --dry-run
+   ```
    ```bash
    sudo bash {baseDir}/bin/setup.sh
    ```
@@ -154,6 +160,7 @@ sudo bash {baseDir}/bin/restore.sh <snapshot_id>
 ```
 
 Always confirm with the user before executing a full restore to `/`.
+For a restore targeting `/`, the script requires the exact confirmation phrase `RESTORE TO /`.
 
 ---
 
@@ -184,10 +191,11 @@ sudo bash {baseDir}/bin/customize.sh
 ```
 
 This scans the system for:
-- Extra paths worth backing up (e.g. `~/.ssh`, `~/.config`, custom scripts)
+- Extra paths worth backing up (e.g. `~/.config`, custom scripts)
 - Common junk patterns to exclude (e.g. `node_modules`, `*.log`, `cache/`)
 
 Shows suggestions and asks for confirmation before changing `config.yaml`.
+Credential stores such as `~/.ssh` and `~/.gnupg` are not auto-suggested. Add them only after explicit user approval and only when repository access and password-file backup are strongly controlled.
 
 ---
 

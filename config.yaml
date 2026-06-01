@@ -46,7 +46,8 @@ integrity:
 
 safety:
   # Espaço mínimo em disco (MB) no volume do repositório para prosseguir com o backup.
-  # Se menor, o backup é abortado e um alerta Telegram é enviado.
+  # Se menor, o backup é abortado e um alerta Telegram mínimo é enviado apenas
+  # quando Telegram estiver explicitamente habilitado e privacy.local_only=false.
   min_disk_mb: 500
 
 notifications:
@@ -85,10 +86,25 @@ notifications:
     # Default: true.
     ping_start: true
 
+privacy:
+  # Modo estritamente local. Quando true, bloqueia Telegram, healthcheck e
+  # update checks mesmo se alguém tentar habilitar esses blocos por engano.
+  # Para usar integrações externas, defina explicitamente como false.
+  local_only: true
+
+  # Quando false, notificações externas enviam apenas estado mínimo. Quando true,
+  # erros podem incluir detalhes sanitizados/truncados. Mantenha false em produção.
+  send_error_details: false
+
+  # Incluir hostname em notificações externas. Hostnames podem revelar ambiente,
+  # cliente, projeto ou topologia; por isso o padrão é false.
+  include_hostname: false
+
 updates:
   # Verificar se há uma versão mais recente no ClawHub (uma vez por dia, non-blocking).
   # Se encontrada, registra no log — nunca atualiza automaticamente.
-  check: true
+  # Desativado por padrão para manter postura local-only até consentimento explícito.
+  check: false
 
 logging:
   # Caminho do arquivo de log. Rotacionado automaticamente pelo setup.sh via logrotate.

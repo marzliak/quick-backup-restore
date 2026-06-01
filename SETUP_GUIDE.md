@@ -19,14 +19,20 @@ Then proceed with Step 7 (Run Setup) directly — setup.sh handles the migration
 ## Step 1: Telegram Notifications
 
 Ask the user:
-> "Want to receive Telegram alerts when a backup fails? I can also send you a daily summary with stats."
+> "Want to receive Telegram alerts when a backup fails? This sends minimal operational metadata to Telegram, a third-party service. I can also send a daily summary with stats."
 
 **If yes:**
 1. Ask for the **bot token** (from @BotFather on Telegram)
 2. Ask for the **chat ID** (from @userinfobot on Telegram)
 3. Ask if they want a **daily digest** (daily summary with snapshot count, repo size, disk free)
-4. Set in `config.yaml`:
+4. Tell the user not to paste the token into public logs, issues, screenshots, or shared transcripts.
+5. Set in `config.yaml`:
 ```yaml
+privacy:
+  local_only: false
+  send_error_details: false
+  include_hostname: false
+
 notifications:
   telegram:
     enabled: true
@@ -35,7 +41,7 @@ notifications:
     daily_digest: true  # or false
 ```
 
-**If no:** leave defaults (enabled: false). Failures will only be logged.
+**If no:** leave defaults (`privacy.local_only: true`, `enabled: false`). Failures will only be logged locally.
 
 ---
 
@@ -50,10 +56,14 @@ Ask the user:
 **If yes:**
 1. Ask for the **healthcheck URL** (e.g. `https://hc-ping.com/<uuid>` from
    healthchecks.io, or a self-hosted instance like `https://hc.example.com/ping/<uuid>`).
-2. Configure the check at the provider to expect a ping every hour
+2. Require `https://` unless the URL points to loopback localhost.
+3. Configure the check at the provider to expect a ping every hour
    (matching `schedule.cron`) plus some grace.
-3. Set in `config.yaml`:
+4. Set in `config.yaml`:
 ```yaml
+privacy:
+  local_only: false
+
 notifications:
   healthcheck:
     enabled: true
@@ -61,7 +71,7 @@ notifications:
     ping_start: true   # adds /start ping so duration is tracked
 ```
 
-**If no:** leave defaults (enabled: false). No pings will be sent.
+**If no:** leave defaults (`privacy.local_only: true`, `enabled: false`). No pings will be sent.
 
 ---
 
@@ -103,15 +113,15 @@ Ask the user:
 > "By default I back up OpenClaw's workspace, sessions, config, and cron jobs. Want to add any extra paths?"
 > 
 > Common additions:
-> - `~/.ssh` — SSH keys
 > - `~/.config` — app configs
 > - Custom scripts or data directories
+>
+> Avoid adding credential stores such as `~/.ssh` and `~/.gnupg` unless you explicitly want encrypted backup copies of private keys and have strong controls around the repository and password file.
 
 If they add paths, append to `backup.extra_paths` in `config.yaml`:
 ```yaml
 backup:
   extra_paths:
-    - /root/.ssh
     - /root/.config
 ```
 
@@ -147,15 +157,21 @@ Set `repository.path` if they want a custom location.
 
 After configuring everything, confirm with the user:
 > "Here's your configuration:"
-> (show the key values: schedule, retention, Telegram on/off, paths, disk guard)
+> (show the key values: schedule, retention, privacy.local_only, Telegram/healthcheck/update on/off, paths, disk guard)
 >
 > "Ready to install? This will:"
 > - Install dependencies (restic, yq, curl, jq)
 > - Generate an AES-256 encryption password
 > - Initialize the backup repository
 > - Register the hourly scheduler (systemd or cron)
+> - Restrict config.yaml permissions because it may contain notification tokens
 >
 > "Shall I proceed?"
+
+Preview first:
+```bash
+bash {baseDir}/bin/setup.sh --dry-run
+```
 
 If yes, run:
 ```bash
