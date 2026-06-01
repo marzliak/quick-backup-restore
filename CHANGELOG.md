@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.2] — 2026-06-01
+
+### Fixed
+
+- Rename `skill-card.md` to `MARKETPLACE.md` because ClawHub generates `skill-card.md` internally and rejects direct publishes containing that file.
+
+---
+
 ## [3.2.1] — 2026-06-01
 
 ### Changed
