@@ -80,6 +80,7 @@ notifications:
 Ask the user:
 > "How often should I back up? Default is every hour at :05. Options:"
 > - **Every hour** (recommended — 72 snapshots = 3 days of history)
+> - **Every 2 hours** (good balance for quieter agents)
 > - **Every 30 minutes** (more granular, uses more disk)
 > - **Once a day at midnight** (minimal disk usage, less granularity)
 > - **Custom** (let them type a cron expression)
@@ -88,6 +89,7 @@ Set `schedule.cron` accordingly:
 | Choice | Cron |
 |--------|------|
 | Every hour | `5 * * * *` |
+| Every 2 hours | `0 */2 * * *` |
 | Every 30 min | `*/30 * * * *` |
 | Daily at midnight | `0 0 * * *` |
 | Custom | whatever they provide |
@@ -163,7 +165,7 @@ After configuring everything, confirm with the user:
 > - Install dependencies (restic, yq, curl, jq)
 > - Generate an AES-256 encryption password
 > - Initialize the backup repository
-> - Register the hourly scheduler (systemd or cron)
+> - Register the configured scheduler (systemd timer or cron)
 > - Restrict config.yaml permissions because it may contain notification tokens
 >
 > "Shall I proceed?"

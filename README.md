@@ -16,6 +16,18 @@ Read [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md) before installing o
 
 ## Quick start
 
+From OpenClaw / ClawHub:
+
+```bash
+openclaw skills search quick-backup-restore
+openclaw skills install quick-backup-restore
+```
+
+Use the slug `quick-backup-restore`; some OpenClaw CLI versions do not accept
+the owner-prefixed form `marzliak/quick-backup-restore`.
+
+From GitHub:
+
 ```bash
 git clone https://github.com/marzliak/quick-backup-restore
 cd quick-backup-restore
@@ -30,7 +42,7 @@ Or, repo-only setup (no apt-get, no cron, no /usr/local/bin changes):
 sudo bin/setup.sh --no-system-install
 ```
 
-Done. Backups run every hour at :05.
+Done. Backups run every hour at :05 by default.
 
 ---
 
@@ -341,7 +353,7 @@ MIT — see [LICENSE.txt](LICENSE.txt)
 ## Links
 
 - **Repository:** [github.com/marzliak/quick-backup-restore](https://github.com/marzliak/quick-backup-restore)
-- **ClawHub:** [quick-backup-restore](https://clawhub.com/skills/quick-backup-restore)
+- **ClawHub:** [quick-backup-restore](https://clawhub.ai/marzliak/quick-backup-restore)
 - **Issues:** [github.com/marzliak/quick-backup-restore/issues](https://github.com/marzliak/quick-backup-restore/issues)
 - **Security:** [SECURITY.md](SECURITY.md)
 - **Privacy:** [PRIVACY.md](PRIVACY.md)

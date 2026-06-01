@@ -292,6 +292,69 @@ hc_send() {
     fi
 }
 
+# --- Scheduler helpers -------------------------------------------------------
+_tc_pad2() {
+    printf '%02d' "$((10#$1))"
+}
+
+_tc_cron_time_field_to_systemd() {
+    local value="$1"
+    local max="$2"
+    local max_step="$3"
+
+    if [[ "$value" == "*" ]]; then
+        printf '*'
+        return 0
+    fi
+
+    if [[ "$value" =~ ^\*/([0-9]+)$ ]]; then
+        local step="${BASH_REMATCH[1]}"
+        local step_num=$((10#$step))
+        if [[ "$step_num" -lt 1 || "$step_num" -gt "$max_step" ]]; then
+            return 1
+        fi
+        printf '00/%s' "$step_num"
+        return 0
+    fi
+
+    local IFS=',' part part_num
+    local -a parts out=()
+    read -r -a parts <<< "$value"
+    for part in "${parts[@]}"; do
+        if ! [[ "$part" =~ ^[0-9]+$ ]]; then
+            return 1
+        fi
+        part_num=$((10#$part))
+        if [[ "$part_num" -lt 0 || "$part_num" -gt "$max" ]]; then
+            return 1
+        fi
+        out+=("$(_tc_pad2 "$part_num")")
+    done
+
+    [[ ${#out[@]} -gt 0 ]] || return 1
+    (IFS=','; printf '%s' "${out[*]}")
+}
+
+tc_cron_to_systemd_calendar() {
+    local expr="$1"
+    local minute hour day month weekday extra
+    read -r minute hour day month weekday extra <<< "$expr"
+
+    [[ -n "${minute:-}" && -n "${hour:-}" && -n "${day:-}" && -n "${month:-}" && -n "${weekday:-}" ]] || return 1
+    [[ -z "${extra:-}" ]] || return 1
+
+    # systemd calendar day/month/week semantics do not map 1:1 to every cron
+    # expression. Convert only daily/hourly/minutely schedules that preserve
+    # the user's requested cadence exactly; setup falls back to cron otherwise.
+    [[ "$day" == "*" && "$month" == "*" && "$weekday" == "*" ]] || return 1
+
+    local systemd_minute systemd_hour
+    systemd_minute=$(_tc_cron_time_field_to_systemd "$minute" 59 59) || return 1
+    systemd_hour=$(_tc_cron_time_field_to_systemd "$hour" 23 23) || return 1
+
+    printf '*-*-* %s:%s:00\n' "$systemd_hour" "$systemd_minute"
+}
+
 # --- Restic wrapper ----------------------------------------------------------
 restic_cmd() {
     RESTIC_PASSWORD_FILE="$PASS_FILE" restic -r "$REPO" "$@"

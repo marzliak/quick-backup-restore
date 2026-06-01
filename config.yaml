@@ -18,6 +18,7 @@ retention:
 schedule:
   # Expressão cron para o backup automático.
   # Padrão: todo :05 da hora (5 * * * *)
+  # Para backup a cada 2 horas: 0 */2 * * *
   # Para backup a cada 30 min: */30 * * * *
   # Para backup diário à meia-noite: 0 0 * * *
   cron: "5 * * * *"

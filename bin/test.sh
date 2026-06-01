@@ -186,6 +186,29 @@ else
     _fail "setup --dry-run returned non-zero"
 fi
 
+_test "Cron converter maps hourly schedule to systemd"
+if CRON_CAL=$(bash -c "source '$TC_ROOT/lib.sh'; tc_cron_to_systemd_calendar '5 * * * *'" 2>&1) \
+    && [[ "$CRON_CAL" == "*-*-* *:05:00" ]]; then
+    _ok
+else
+    _fail "$CRON_CAL"
+fi
+
+_test "Cron converter maps every 2 hours to systemd"
+if CRON_CAL=$(bash -c "source '$TC_ROOT/lib.sh'; tc_cron_to_systemd_calendar '0 */2 * * *'" 2>&1) \
+    && [[ "$CRON_CAL" == "*-*-* 00/2:00:00" ]]; then
+    _ok
+else
+    _fail "$CRON_CAL"
+fi
+
+_test "Cron converter rejects weekly schedules for cron fallback"
+if CRON_CAL=$(bash -c "source '$TC_ROOT/lib.sh'; tc_cron_to_systemd_calendar '0 0 * * 1'" 2>&1); then
+    _fail "unexpected conversion: $CRON_CAL"
+else
+    _ok
+fi
+
 # --- Backup → Restore → Verify roundtrip -----------------------------------
 _test "Roundtrip: backup → restore → verify"
 

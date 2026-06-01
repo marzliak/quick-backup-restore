@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.3] — 2026-06-01
+
+### Fixed
+
+- Preserve custom backup cadence when installing on systemd hosts. `setup.sh`
+  now converts simple cron expressions such as `0 */2 * * *` to equivalent
+  `OnCalendar` values instead of falling back to hourly.
+- Fall back to `/etc/cron.d/time-clawshine` for cron expressions that cannot be
+  converted safely, preserving the user's configured `schedule.cron` exactly.
+
+### Documentation
+
+- Document the OpenClaw install command with the slug-only format:
+  `openclaw skills install quick-backup-restore`.
+- Add "every 2 hours" as a first-class setup-guide frequency option.
+
+---
+
 ## [3.2.2] — 2026-06-01
 
 ### Fixed

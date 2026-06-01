@@ -61,6 +61,12 @@ sudo bash {baseDir}/bin/setup.sh
 
 **First, read `{baseDir}/SETUP_GUIDE.md` and walk the user through each step interactively.** The guide covers Telegram, frequency, retention, extra paths, disk safety, and repo location. Configure `config.yaml` based on their answers before running setup.
 
+If installing from ClawHub in OpenClaw, use the slug-only form:
+```bash
+openclaw skills install quick-backup-restore
+```
+Some OpenClaw CLI versions reject owner-prefixed slugs such as `marzliak/quick-backup-restore`.
+
 If the user wants a quick install without customization:
 
 1. Check if already set up:
@@ -263,7 +269,7 @@ sudo bash {baseDir}/bin/status.sh
 
 Or check manually:
 ```bash
-clawhub update quick-backup-restore
+openclaw skills update quick-backup-restore
 ```
 
 Note: `backup.sh` automatically checks for updates once per day (if `updates.check: true` in config). It logs a warning when a new version is available but never updates automatically.
