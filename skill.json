@@ -1,8 +1,8 @@
 {
   "name": "quick-backup-restore",
-  "version": "3.2.0",
-  "displayName": "OpenClaw Time Machine (restic quick backup and restore)",
-  "description": "Time Clawshine is an OpenClaw backup, restore, cleanup, and scheduler tool. It can run setup with sudo, install dependencies, create a systemd timer or cron job, back up sensitive OpenClaw memory/sessions/config into an encrypted restic repository, restore files that may overwrite current state, and prune or purge old recovery data. External Telegram, healthcheck, and update-check integrations are disabled by default and require explicit configuration.",
+  "version": "3.2.1",
+  "displayName": "Time Clawshine — OpenClaw Time Machine",
+  "description": "Restic-powered encrypted time machine for OpenClaw: hourly incremental snapshots, fast restore by time/snapshot/file, local-only privacy defaults, integrity checks, retention, and optional alerts. Setup can run with sudo, install dependencies, create a systemd timer or cron job, restore files that may overwrite current state, and prune or purge old recovery data.",
   "emoji": "⏱",
   "author": {
     "name": "Leandro Marz",
@@ -10,7 +10,18 @@
   },
   "license": "MIT",
   "platforms": ["linux"],
-  "tags": ["backup", "restic", "memory", "restore", "time-machine", "ops"],
+  "tags": [
+    "backup",
+    "restore",
+    "restic",
+    "snapshots",
+    "time-machine",
+    "encrypted-backup",
+    "local-backup",
+    "openclaw",
+    "disaster-recovery",
+    "privacy"
+  ],
   "openclaw": {
     "minVersion": "2026.1.0"
   },

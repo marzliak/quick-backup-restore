@@ -1,10 +1,12 @@
-# ⏱🪞 Time Clawshine
+# ⏱🪞 Time Clawshine — OpenClaw Time Machine
 
 [![CI](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml/badge.svg)](https://github.com/marzliak/quick-backup-restore/actions/workflows/ci.yml)
 
-**Privileged backup, restore, cleanup, and scheduler tooling for OpenClaw instances.**
+**Restic-powered encrypted snapshots for OpenClaw.**
 
-Restic-powered, YAML-configured, local-only by default. Time Clawshine can run setup with `sudo`, install dependencies, register systemd/cron persistence, back up sensitive OpenClaw memory/sessions/config, restore over current files, and prune old recovery points. Telegram, healthcheck.io / hc-style pings, and ClawHub update checks are optional and disabled by default.
+Time Clawshine is a local-first time machine for OpenClaw: hourly incremental snapshots, fast restore by time/snapshot/file, integrity checks, retention, and privacy defaults that keep external egress off unless you opt in. It is not a plain tarball backup; restic handles encryption, deduplication, and snapshot history.
+
+Security note: setup can run with `sudo`, install dependencies, register systemd/cron persistence, back up sensitive OpenClaw memory/sessions/config, restore over current files, and prune old recovery points. Telegram, healthcheck.io / hc-style pings, and ClawHub update checks are optional and disabled by default.
 
 **Platform:** Linux only (bash scripts). macOS works with Homebrew restic but is untested. Windows not supported.
 

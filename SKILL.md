@@ -1,16 +1,16 @@
 ---
 name: quick-backup-restore
-description: "Time Clawshine — OpenClaw backup, restore, cleanup, and scheduler tool. It can run setup with sudo, install dependencies, create systemd/cron persistence, back up sensitive agent memory/sessions/config, restore over current files, and prune or purge recovery data. External Telegram, healthcheck, and update-check integrations are disabled by default."
+description: "Restic-powered encrypted time machine for OpenClaw: hourly incremental snapshots, fast restore by time/snapshot/file, local-only privacy defaults, integrity checks, retention, and optional alerts. Setup can run with sudo, install dependencies, create systemd/cron persistence, restore over current files, and prune or purge recovery data."
 metadata: { "openclaw": { "emoji": "⏱", "requires": { "bins": ["bash", "openssl", "curl", "jq"], "auto_install": ["restic", "yq"] }, "install": [{ "id": "setup", "kind": "shell", "label": "Run Time Clawshine setup", "command": "sudo bash {baseDir}/bin/setup.sh" }], "homepage": "https://github.com/marzliak/quick-backup-restore", "capabilities": { "filesystem": ["read configured backup paths", "write encrypted restic repository", "restore snapshots to target paths", "forget/prune snapshots", "optional destructive purge"], "system": ["sudo setup", "optional package install", "optional systemd timer or cron", "optional logrotate and /usr/local/bin install"], "network": ["optional Telegram", "optional healthcheck", "optional ClawHub update check", "blocked by privacy.local_only by default"], "sensitive_data": ["OpenClaw memory", "sessions", "config", "user-added paths may contain secrets"] } } }
 ---
 
-# ⏱🦞 Time Clawshine
+# ⏱🦞 Time Clawshine — OpenClaw Time Machine
 
 **Your agent just nuked its own memory. Now what?**
 
 You spent weeks training your OpenClaw agent — building memory, refining context, tuning personality. Then one bad session wipes it. Gone. And your last "real" backup? Yesterday. Maybe last week.
 
-**Time Clawshine gives you a time machine.** Every hour, it silently takes an encrypted, incremental snapshot of your agent's brain — memory, sessions, config, everything. Only changed bytes are stored, so it runs in seconds and barely uses disk. When things break (and they will), you roll back to *exactly* the moment before it happened. Not yesterday. Not "the last backup." The exact hour.
+**Time Clawshine gives OpenClaw a local encrypted time machine.** Every hour, restic takes an incremental snapshot of your agent's brain — memory, sessions, config, everything. Only changed bytes are stored, so backups stay fast and compact. When things break (and they will), you roll back by time, snapshot, or file to *exactly* the moment before it happened. Not yesterday. Not "the last backup." The exact hour.
 
 Security note: this is a privileged backup/restore tool, not a narrow read-only helper. Setup can install packages and a scheduler with `sudo`; restore can overwrite current files; retention/prune can remove old recovery points; and optional external integrations can send minimal operational metadata only after explicit opt-in.
 

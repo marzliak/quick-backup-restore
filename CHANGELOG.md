@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.1] — 2026-06-01
+
+### Changed
+
+- Refresh ClawHub positioning around the public name
+  `Time Clawshine — OpenClaw Time Machine`.
+- Rewrite the first-line description for discovery around restic, encrypted
+  snapshots, time/snapshot/file restore, local-only privacy defaults, integrity,
+  retention, and optional alerts.
+- Split discovery tags into focused tags: backup, restore, restic, snapshots,
+  time-machine, encrypted-backup, local-backup, openclaw, disaster-recovery, and
+  privacy.
+- Add `skill-card.md` with concise marketplace copy highlighting the difference
+  between restic snapshots and plain tarball backups.
+
+---
+
 ## [3.2.0] — 2026-06-01
 
 ### Security
